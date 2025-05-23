@@ -6,15 +6,14 @@ import (
 	"fmt"
 )
 
-var (
-	pieceSymbols = [12]rune{
-		'♙', '♘', '♗', '♖', '♕', '♔',
-		'♟', '♞', '♝', '♜', '♛', '♚',
-	}
-)
+// pieceSymbols is an array of chess piece runes.
+var pieceSymbols = [12]rune{
+	'♙', '♘', '♗', '♖', '♕', '♔',
+	'♟', '♞', '♝', '♜', '♛', '♚',
+}
 
-// PrintBitboard prints the bitboard of the specified piece type as a full chessboard.
-func PrintBitboard(bitboard uint64, piece enum.Piece) {
+// PrintBitboard prints the bitboard of the specified piece type as a chessboard.
+func PrintBitboard(bitboard uint64, pieceType enum.Piece) {
 	fmt.Printf("   a  b  c  d  e  f  g  h\n")
 
 	for rank := 7; rank >= 0; rank-- {
@@ -23,7 +22,7 @@ func PrintBitboard(bitboard uint64, piece enum.Piece) {
 		for file := 0; file < 8; file++ {
 			squareIndex := uint64(1 << (8*rank + file))
 
-			symbol := pieceSymbols[piece]
+			symbol := pieceSymbols[pieceType]
 			if bitboard&squareIndex == 0 {
 				symbol = '.'
 			}
@@ -37,7 +36,7 @@ func PrintBitboard(bitboard uint64, piece enum.Piece) {
 	fmt.Printf("   a  b  c  d  e  f  g  h\n")
 }
 
-// PrintBitboardsArray prints the specified array of bitboars as a full chessboard.
+// PrintBitboardsArray prints the specified array of bitboards as a chessboard.
 func PrintBitboardsArray(bitboards [12]uint64) {
 	fmt.Printf("   a  b  c  d  e  f  g  h\n")
 
