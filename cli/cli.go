@@ -3,7 +3,7 @@ package cli
 
 import (
 	"chego/enum"
-	"fmt"
+	"strings"
 )
 
 // pieceSymbols is an array of chess piece runes.
@@ -12,12 +12,12 @@ var pieceSymbols = [12]rune{
 	'♟', '♞', '♝', '♜', '♛', '♚',
 }
 
-// PrintBitboard prints the bitboard of the specified piece type as a chessboard.
-func PrintBitboard(bitboard uint64, pieceType enum.Piece) {
-	fmt.Printf("   a  b  c  d  e  f  g  h\n")
+func FormatBitboard(bitboard uint64, pieceType enum.Piece) string {
+	var bitboardStr strings.Builder
 
 	for rank := 7; rank >= 0; rank-- {
-		fmt.Printf("%d  ", rank+1)
+		bitboardStr.WriteByte(byte(rank) + 1 + '0')
+		bitboardStr.WriteString("  ")
 
 		for file := 0; file < 8; file++ {
 			squareIndex := uint64(1 << (8*rank + file))
@@ -27,51 +27,12 @@ func PrintBitboard(bitboard uint64, pieceType enum.Piece) {
 				symbol = '.'
 			}
 
-			fmt.Printf("%c  ", symbol)
+			bitboardStr.WriteRune(symbol)
+			bitboardStr.WriteString("  ")
 		}
-
-		fmt.Printf("%d\n", rank+1)
+		bitboardStr.WriteString("\n")
 	}
+	bitboardStr.WriteString("   a  b  c  d  e  f  g  h\n")
 
-	fmt.Printf("   a  b  c  d  e  f  g  h\n")
-}
-
-// PrintBitboardsArray prints the specified array of bitboards as a chessboard.
-func PrintBitboardsArray(bitboards [12]uint64) {
-	fmt.Printf("   a  b  c  d  e  f  g  h\n")
-
-	board := [8][8]rune{
-		{'.', '.', '.', '.', '.', '.', '.', '.'},
-		{'.', '.', '.', '.', '.', '.', '.', '.'},
-		{'.', '.', '.', '.', '.', '.', '.', '.'},
-		{'.', '.', '.', '.', '.', '.', '.', '.'},
-		{'.', '.', '.', '.', '.', '.', '.', '.'},
-		{'.', '.', '.', '.', '.', '.', '.', '.'},
-		{'.', '.', '.', '.', '.', '.', '.', '.'},
-		{'.', '.', '.', '.', '.', '.', '.', '.'},
-	}
-
-	for pieceType, bitboard := range bitboards {
-		for rank := 0; rank < 8; rank++ {
-			for file := 0; file < 8; file++ {
-				squareIndex := uint64(1 << (8*rank + file))
-
-				if bitboard&squareIndex != 0 {
-					board[rank][file] = pieceSymbols[pieceType]
-				}
-			}
-		}
-	}
-
-	for rank := 7; rank >= 0; rank-- {
-		fmt.Printf("%d  ", rank+1)
-
-		for file := 0; file < 8; file++ {
-			fmt.Printf("%c  ", board[rank][file])
-		}
-
-		fmt.Printf("%d\n", rank+1)
-	}
-
-	fmt.Printf("   a  b  c  d  e  f  g  h\n")
+	return bitboardStr.String()
 }
