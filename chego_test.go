@@ -148,12 +148,46 @@ func TestGenMagicNumber(t *testing.T) {
 	InitBishopRelevantOccupancy()
 	InitRookRelevantOccupancy()
 
+	t.Logf("\n\n")
 	for square := 0; square < 64; square++ {
-		t.Logf("%x\n", GenMagicNumber(square, true))
+		t.Logf("%x,\n", GenMagicNumber(square, true))
 	}
 
+	t.Logf("\n\n")
 	for square := 0; square < 64; square++ {
-		t.Logf("%x\n", GenMagicNumber(square, false))
+		t.Logf("%x,\n", GenMagicNumber(square, false))
+	}
+}
+
+func TestLookupBishopAttacks(t *testing.T) {
+	InitAttackTables()
+
+	var occupied uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
+	for square := uint64(1); square != 0; square <<= 1 {
+		got := LookupBishopAttacks(BitScan(square), occupied)
+		expected := GenBishopAttacks(square, occupied)
+
+		if got != expected {
+			t.Logf("expected:\n\n%s\n\n", cli.FormatBitboard(expected, enum.PieceWBishop))
+			t.Logf("got:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWBishop))
+			t.FailNow()
+		}
+	}
+}
+
+func TestLookupRookAttacks(t *testing.T) {
+	InitAttackTables()
+
+	var occupied uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
+	for square := uint64(1); square != 0; square <<= 1 {
+		got := LookupRookAttacks(BitScan(square), occupied)
+		expected := GenRookAttacks(square, occupied)
+
+		if got != expected {
+			t.Logf("got:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWRook))
+			t.Logf("expected:\n\n%s\n\n", cli.FormatBitboard(expected, enum.PieceWRook))
+			t.FailNow()
+		}
 	}
 }
 
