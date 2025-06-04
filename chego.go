@@ -510,6 +510,36 @@ func LookupRookAttacks(square int, occupancy uint64) uint64 {
 	return RookAttacks[square][occupancy]
 }
 
+// LookupQueenAttacks returns a bitboard of squares attacked by a queen.
+// The bitboard is calculated as the logical disjunction of the bishop and rook attack bitboards.
+func LookupQueenAttacks(square int, occupancy uint64) uint64 {
+	return LookupBishopAttacks(square, occupancy) | LookupRookAttacks(square, occupancy)
+}
+
+// IsSquareUnderAttack returns true if the given square is attacked in the given position by the specified color.
+// color has int type to avoid type conversions while adding enum.Piece and enum.Color.
+func IsSquareUnderAttack(bitboards [12]uint64, occupancy uint64,
+	square int, color enum.Color) bool {
+	// If attacked by pawns.
+	if (PawnAttacks[color^1][square]&bitboards[color+enum.PieceWPawn] != 0) ||
+		// If attacked by knights.
+		(KnightAttacks[square]&bitboards[color+enum.PieceWKing] != 0) ||
+		// If attacked by bishops.
+		(LookupBishopAttacks(square, occupancy)&bitboards[color+enum.PieceWBishop] != 0) ||
+		// If attacked by rooks.
+		(LookupRookAttacks(square, occupancy)&bitboards[color+enum.PieceWRook] != 0) ||
+		// If attacked by queens.
+		(LookupQueenAttacks(square, occupancy)&bitboards[color+enum.PieceWQueen] != 0) ||
+		// If attacked by king.
+		(KingAttacks[square]&bitboards[color+enum.PieceWKing] != 0) {
+		// Square is under attack.
+		return true
+	}
+
+	// Square is not under attack.
+	return false
+}
+
 // InitAttackTables initializes the predefined attack tables.
 func InitAttackTables() {
 	InitBishopRelevantOccupancy()

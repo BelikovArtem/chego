@@ -2,7 +2,8 @@
 // Used to avoid the "magic numbers" antipattern.
 package enum
 
-type Piece int
+// Piece is allias type to avoid bothersome conversion between int and Piece.
+type Piece = int
 
 const (
 	PieceWPawn Piece = iota
@@ -19,7 +20,8 @@ const (
 	PieceBKing
 )
 
-type Color int
+// Color is allias type to avoid bothersome conversion between int and Color.
+type Color = int
 
 const (
 	ColorWhite Color = iota
@@ -29,15 +31,36 @@ const (
 type MoveType int
 
 const (
-	MoveNormal    MoveType = iota // Quite & capture moves.
-	MoveCastling                  // King & queen castle.
-	MovePromotion                 // Knight & Bishop & Rook & Queen promotions.
-	MoveEnPassant                 // Special pawn move.
+	// Quite & capture moves.
+	MoveNormal MoveType = iota
+	// King & queen castle.
+	MoveCastling
+	// Knight & Bishop & Rook & Queen promotions.
+	MovePromotion
+	// Special pawn move.
+	MoveEnPassant
+)
+
+// CastlingFlag defines the player's rights to perform castlings:
+//
+// 	0 bit: white king can O-O.
+//  1 bit: white king can O-O-O.
+//  2 bit: black king can O-O.
+//  3 bit: black king can O-O-O.
+type CastlingFlag int
+
+const (
+	CastlingWhiteKing  CastlingFlag = 1
+	CastlingWhiteQueen CastlingFlag = 2
+	CastlingBlackKing  CastlingFlag = 4
+	CastlingBlackQueen CastlingFlag = 8
 )
 
 // Bitboards of each square. Used to simplify tests.
 const (
-	A1 uint64 = 1 << iota
+	// To distinguish the absence of the en passant target.
+	NoSquare        = -1
+	A1       uint64 = 1 << (iota - 1)
 	B1
 	C1
 	D1

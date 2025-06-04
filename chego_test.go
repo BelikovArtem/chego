@@ -3,8 +3,18 @@ package chego
 import (
 	"chego/cli"
 	"chego/enum"
+	"chego/fen"
+	"os"
 	"testing"
 )
+
+// Used to avoid writing InitAttackTables() each time.
+func TestMain(m *testing.M) {
+	// Setup.
+	InitAttackTables()
+	// Tests execution.
+	os.Exit(m.Run())
+}
 
 func TestGenPawnAttacks(t *testing.T) {
 	testcases := []struct {
@@ -26,7 +36,7 @@ func TestGenPawnAttacks(t *testing.T) {
 	for _, tc := range testcases {
 		got := GenPawnAttacks(tc.bitboard, tc.color)
 		if got != tc.expected {
-			t.Logf("test %s failed\n", tc.name)
+			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWPawn))
 			t.Logf("got bitboard:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWPawn))
 			t.FailNow()
@@ -49,7 +59,7 @@ func TestGenKnightAttacks(t *testing.T) {
 	for _, tc := range testcases {
 		got := GenKnightAttacks(tc.bitboard)
 		if got != tc.expected {
-			t.Logf("test %s failed\n", tc.name)
+			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWKnight))
 			t.Logf("got bitboard:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWKnight))
 			t.FailNow()
@@ -71,7 +81,7 @@ func TestGenKingAttacks(t *testing.T) {
 	for _, tc := range testcases {
 		got := GenKingAttacks(tc.bitboard)
 		if got != tc.expected {
-			t.Logf("test %s failed\n", tc.name)
+			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWKing))
 			t.Logf("got bitboard:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWKing))
 			t.FailNow()
@@ -93,7 +103,7 @@ func TestGenBishopAttacks(t *testing.T) {
 	for _, tc := range testcases {
 		got := GenBishopAttacks(tc.bitboard, tc.occupancy)
 		if got != tc.expected {
-			t.Logf("test %s failed\n", tc.name)
+			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWBishop))
 			t.Logf("got bitboard:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWBishop))
 			t.FailNow()
@@ -119,7 +129,7 @@ func TestGenRookAttacks(t *testing.T) {
 	for _, tc := range testcases {
 		got := GenRookAttacks(tc.bitboard, tc.occupancy)
 		if got != tc.expected {
-			t.Logf("test %s failed\n", tc.name)
+			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWRook))
 			t.Logf("got bitboard:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWRook))
 			t.FailNow()
@@ -145,9 +155,6 @@ func TestBitScan(t *testing.T) {
 }
 
 func TestGenMagicNumber(t *testing.T) {
-	InitBishopRelevantOccupancy()
-	InitRookRelevantOccupancy()
-
 	t.Logf("\n\n")
 	for square := 0; square < 64; square++ {
 		t.Logf("%x,\n", GenMagicNumber(square, true))
@@ -160,12 +167,10 @@ func TestGenMagicNumber(t *testing.T) {
 }
 
 func TestLookupBishopAttacks(t *testing.T) {
-	InitAttackTables()
-
-	var occupied uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
+	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
 	for square := uint64(1); square != 0; square <<= 1 {
-		got := LookupBishopAttacks(BitScan(square), occupied)
-		expected := GenBishopAttacks(square, occupied)
+		got := LookupBishopAttacks(BitScan(square), occupancy)
+		expected := GenBishopAttacks(square, occupancy)
 
 		if got != expected {
 			t.Logf("expected:\n\n%s\n\n", cli.FormatBitboard(expected, enum.PieceWBishop))
@@ -176,17 +181,68 @@ func TestLookupBishopAttacks(t *testing.T) {
 }
 
 func TestLookupRookAttacks(t *testing.T) {
-	InitAttackTables()
-
-	var occupied uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
+	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
 	for square := uint64(1); square != 0; square <<= 1 {
-		got := LookupRookAttacks(BitScan(square), occupied)
-		expected := GenRookAttacks(square, occupied)
+		got := LookupRookAttacks(BitScan(square), occupancy)
+		expected := GenRookAttacks(square, occupancy)
 
 		if got != expected {
 			t.Logf("got:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWRook))
 			t.Logf("expected:\n\n%s\n\n", cli.FormatBitboard(expected, enum.PieceWRook))
 			t.FailNow()
+		}
+	}
+}
+
+func TestLookupQueenAttacks(t *testing.T) {
+	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
+	for square := uint64(1); square != 0; square <<= 1 {
+		got := LookupQueenAttacks(BitScan(square), occupancy)
+		expected := GenBishopAttacks(square, occupancy) |
+			GenRookAttacks(square, occupancy)
+
+		if got != expected {
+			t.Logf("got:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWQueen))
+			t.Logf("expected:\n\n%s\n\n", cli.FormatBitboard(expected, enum.PieceWQueen))
+			t.FailNow()
+		}
+	}
+}
+
+func TestIsSquareUnderAttack(t *testing.T) {
+	testcases := []struct {
+		name     string
+		fenStr   string
+		square   int
+		color    enum.Color
+		expected bool
+	}{
+		{
+			"square D4 is not attacked by white",
+			"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
+			BitScan(enum.D4),
+			enum.ColorWhite,
+			false,
+		},
+		{
+			"square D4 is attacked by white queen",
+			"8/8/8/8/3p4/8/1Q6/8",
+			BitScan(enum.D4),
+			enum.ColorWhite,
+			true,
+		},
+	}
+
+	for _, tc := range testcases {
+		bitboards := fen.ToBitboardArray(tc.fenStr)
+		var occupancy uint64
+		for pieceType := enum.PieceWPawn; pieceType <= enum.PieceBKing; pieceType++ {
+			occupancy |= bitboards[pieceType]
+		}
+
+		got := IsSquareUnderAttack(bitboards, occupancy, tc.square, tc.color)
+		if got != tc.expected {
+			t.Fatalf("test \"%s\" failed: got %t, expected %t\n", tc.name, got, tc.expected)
 		}
 	}
 }
@@ -233,9 +289,43 @@ func BenchmarkInitRookReleventOccupancy(b *testing.B) {
 	}
 }
 
+// Using b.Loop here since it is the recommeded approach when the benchmark must have a setup.
+func BenchmarkLookupBishopAttacks(b *testing.B) {
+	InitAttackTables()
+
+	for b.Loop() {
+		LookupBishopAttacks(35, 0x0)
+	}
+}
+
+func BenchmarkLookupRookAttacks(b *testing.B) {
+	InitAttackTables()
+
+	for b.Loop() {
+		LookupRookAttacks(35, 0x0)
+	}
+}
+
+func BenchmarkLookupQueenAttacks(b *testing.B) {
+	InitAttackTables()
+
+	for b.Loop() {
+		LookupQueenAttacks(35, 0x0)
+	}
+}
+
 func BenchmarkGenMagicNumber(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		GenMagicNumber(23, false)
+	}
+}
+
+func BenchmarkIsSquareUnderAttack(b *testing.B) {
+	InitAttackTables()
+	bitboards := fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+
+	for b.Loop() {
+		IsSquareUnderAttack(bitboards, 0xFFFF00000000FFFF, BitScan(enum.D4), enum.ColorWhite)
 	}
 }
 
