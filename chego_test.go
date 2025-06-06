@@ -220,15 +220,22 @@ func TestIsSquareUnderAttack(t *testing.T) {
 		{
 			"square D4 is not attacked by white",
 			"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
-			BitScan(enum.D4),
+			enum.SD4,
 			enum.ColorWhite,
 			false,
 		},
 		{
 			"square D4 is attacked by white queen",
 			"8/8/8/8/3p4/8/1Q6/8",
-			BitScan(enum.D4),
+			enum.SD4,
 			enum.ColorWhite,
+			true,
+		},
+		{
+			"square C3 is attacked by black pawn",
+			"8/8/8/8/3p4/2K5/8/8",
+			enum.SC3,
+			enum.ColorBlack,
 			true,
 		},
 	}
@@ -243,6 +250,80 @@ func TestIsSquareUnderAttack(t *testing.T) {
 		got := IsSquareUnderAttack(bitboards, occupancy, tc.square, tc.color)
 		if got != tc.expected {
 			t.Fatalf("test \"%s\" failed: got %t, expected %t\n", tc.name, got, tc.expected)
+		}
+	}
+}
+
+func TestGenPawnsPseudoLegalMoves(t *testing.T) {
+	testcases := []struct {
+		name     string
+		bitboard uint64
+		allies   uint64
+		enemies  uint64
+		color    enum.Color
+		expected MoveList
+	}{
+		{
+			"8/8/8/8/p1p1p1p1/8/PPPPPPPP/8 white pawns",
+			0xFF00, 0x0, 0x55000000, enum.ColorWhite,
+			MoveList{
+				[218]Move{
+					NewMove(enum.SA3, enum.SA2, 0, enum.MoveNormal),
+					NewMove(enum.SB3, enum.SB2, 0, enum.MoveNormal),
+					NewMove(enum.SB4, enum.SB2, 0, enum.MoveNormal),
+					NewMove(enum.SC3, enum.SC2, 0, enum.MoveNormal),
+					NewMove(enum.SD3, enum.SD2, 0, enum.MoveNormal),
+					NewMove(enum.SD4, enum.SD2, 0, enum.MoveNormal),
+					NewMove(enum.SE3, enum.SE2, 0, enum.MoveNormal),
+					NewMove(enum.SF3, enum.SF2, 0, enum.MoveNormal),
+					NewMove(enum.SF4, enum.SF2, 0, enum.MoveNormal),
+					NewMove(enum.SG3, enum.SG2, 0, enum.MoveNormal),
+					NewMove(enum.SH3, enum.SH2, 0, enum.MoveNormal),
+					NewMove(enum.SH4, enum.SH2, 0, enum.MoveNormal),
+				}, 12,
+			},
+		},
+		{
+			"8/8/8/8/p1p1p1p1/8/PPPPPPPP/8 black pawns",
+			0x55000000, 0x0, 0xFF00, enum.ColorBlack,
+			MoveList{
+				[218]Move{
+					NewMove(enum.SA3, enum.SA4, 0, enum.MoveNormal),
+					NewMove(enum.SC3, enum.SC4, 0, enum.MoveNormal),
+					NewMove(enum.SE3, enum.SE4, 0, enum.MoveNormal),
+					NewMove(enum.SG3, enum.SG4, 0, enum.MoveNormal),
+				}, 4,
+			},
+		},
+		{
+			"8/4P3/8/8/8/8/8/8 white quiet promotion",
+			enum.E7, 0x0, 0x0, enum.ColorWhite,
+			MoveList{
+				[218]Move{
+					NewMove(enum.SE8, enum.SE7, 0, enum.MovePromotion),
+				}, 1,
+			},
+		},
+		{
+			"8/8/8/8/8/8/1p6/2P5 black quiet and capture promotions",
+			enum.B2, 0x0, enum.C1, enum.ColorBlack,
+			MoveList{
+				[218]Move{
+					NewMove(enum.SB1, enum.SB2, 0, enum.MovePromotion),
+					NewMove(enum.SC1, enum.SB2, 0, enum.MovePromotion),
+				}, 2,
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		ml := MoveList{}
+		genPawnsPseudoLegalMoves(tc.bitboard, tc.allies, tc.enemies, tc.color, &ml)
+
+		for i, move := range ml.Moves {
+			if tc.expected.Moves[i] != move {
+				t.Fatalf("expected %v, got %v\n", tc.expected, ml)
+			}
 		}
 	}
 }
@@ -325,7 +406,13 @@ func BenchmarkIsSquareUnderAttack(b *testing.B) {
 	bitboards := fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
 
 	for b.Loop() {
-		IsSquareUnderAttack(bitboards, 0xFFFF00000000FFFF, BitScan(enum.D4), enum.ColorWhite)
+		IsSquareUnderAttack(bitboards, 0xFFFF00000000FFFF, enum.SD4, enum.ColorWhite)
+	}
+}
+
+func BenchmarkGenPawnsPseudoLegalMoves(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		genPawnsPseudoLegalMoves(0xFF00, 0x0, 0x55000000, enum.ColorWhite, &MoveList{})
 	}
 }
 

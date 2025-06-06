@@ -8,8 +8,8 @@ import (
 
 // Move represents a chess move, encoded as a 16 bit unsigned integer:
 //
-//	0-5: To (destination) square index;
-//	6-11: From (origin/source) square index;
+//	0-5:   To (destination) square index;
+//	6-11:  From (origin/source) square index;
 //	12-13: Promotion piece (00 - knight, 01 - bishop, 10 - rook, 11 - queen);
 //	14-15: Move type (see [enum.MoveType]).
 type Move uint16
@@ -21,6 +21,20 @@ func (m Move) To() int                    { return int(m & 0x3F) }
 func (m Move) From() int                  { return int(m>>6) & 0x3F }
 func (m Move) PromotionPiece() enum.Piece { return enum.Piece(m>>12) & 0x3 }
 func (m Move) Type() enum.MoveType        { return enum.MoveType(m>>14) & 0x3 }
+
+// MoveList is used to store moves.
+type MoveList struct {
+	// Maximum number of moves per chess position is equal to 218, hence 218 elements.
+	Moves [218]Move
+	// To keep track of the next move index.
+	LastMoveIndex byte
+}
+
+// Push adds the move to the end of the move list.
+func (ml *MoveList) Push(move Move) {
+	ml.Moves[ml.LastMoveIndex] = move
+	ml.LastMoveIndex++
+}
 
 const (
 	// Precalculated magic used to form indices for the BitScanLookup array.
@@ -38,6 +52,14 @@ const (
 	NOT_1ST_RANK uint64 = 0xFFFFFFFFFFFFFF00
 	// Bitmask of all ranks except eighth.
 	NOT_8TH_RANK uint64 = 0x00FFFFFFFFFFFFFF
+	// Bitmask of the first rank.
+	RANK_1 uint64 = 0xFF
+	// Bitmask of the second rank.
+	RANK_2 uint64 = 0xFF00
+	// Bitmask of the seventh rank.
+	RANK_7 uint64 = 0xFF000000000000
+	// Bitmask of the eight rank.
+	RANK_8 uint64 = 0xFF00000000000000
 )
 
 // BitScan returns the index of the Least Significant Bit (LSB) withing a bitboard.
@@ -538,6 +560,95 @@ func IsSquareUnderAttack(bitboards [12]uint64, occupancy uint64,
 
 	// Square is not under attack.
 	return false
+}
+
+// genPawnsPseudoLegalMoves appends pseudo-legal moves (quiet moves and captures) for the pawns on
+// the given bitboard to the specified move list.
+func genPawnsPseudoLegalMoves(bitboard, allies, enemies uint64, color enum.Color, moveList *MoveList) {
+	var square, forward, doubleForward, delta int
+	var pawn, initialRank, promotionRank uint64
+	occupancy := allies | enemies
+
+	if color == enum.ColorWhite {
+		delta = 8
+		initialRank = RANK_2
+		promotionRank = RANK_8
+	} else {
+		delta = -8
+		initialRank = RANK_7
+		promotionRank = RANK_1
+	}
+
+	// Loop over each pawn within a bitboard.
+	for bitboard > 0 {
+		square = PopLSB(&bitboard)
+		pawn = 1 << square
+
+		forward = square + delta
+		doubleForward = square + delta*2
+
+		// If a pawn can move 1 square forward.
+		var forwardBB uint64 = 1 << forward
+		if forwardBB&occupancy == 0 {
+			// Check if the move is promotion.
+			if forwardBB&promotionRank != 0 {
+				moveList.Push(NewMove(forward, square, 0, enum.MovePromotion))
+			} else {
+				moveList.Push(NewMove(forward, square, 0, enum.MoveNormal))
+			}
+
+			// If the pawn is standing on its initial rank and can move 2 squares forward.
+			if pawn&initialRank != 0 && 1<<doubleForward&occupancy == 0 {
+				moveList.Push(NewMove(doubleForward, square, 0, enum.MoveNormal))
+			}
+		}
+
+		// Handle pawn attacks.
+		attacks := PawnAttacks[color][square] & enemies
+		for attacks > 0 {
+			attackedSquare := PopLSB(&attacks)
+
+			if 1<<attackedSquare&promotionRank != 0 {
+				moveList.Push(NewMove(attackedSquare, square, 0, enum.MovePromotion))
+			}
+		}
+	}
+}
+
+// genNormalPseudoLegalMoves appends generated pseudo-legal moves for all
+// pieces that do not have special move rules (knights, bishops, rooks, and queens).
+func genNormalPseudoLegalMoves(pieceType enum.Piece, bitboard, allies,
+	enemies uint64, moveList *MoveList) {
+	occupancy := allies | enemies
+
+	for bitboard > 0 {
+		square := PopLSB(&bitboard)
+
+		var attacks uint64
+
+		switch pieceType {
+		case enum.PieceWKnight, enum.PieceBKnight:
+			attacks = KnightAttacks[square]
+
+		case enum.PieceWBishop, enum.PieceBBishop:
+			attacks = LookupBishopAttacks(square, occupancy)
+
+		case enum.PieceWRook, enum.PieceBRook:
+			attacks = LookupRookAttacks(square, occupancy)
+
+		case enum.PieceWQueen, enum.PieceBQueen:
+			attacks = LookupQueenAttacks(square, occupancy)
+		}
+
+		for attacks > 0 {
+			attackedSquare := PopLSB(&attacks)
+
+			if 1<<attackedSquare&enemies != 0 ||
+				1<<attackedSquare&allies == 0 {
+				moveList.Push(NewMove(attackedSquare, square, 0, enum.MoveNormal))
+			}
+		}
+	}
 }
 
 // InitAttackTables initializes the predefined attack tables.

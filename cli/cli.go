@@ -28,13 +28,11 @@ var squareString = [64]string{
 func FormatBitboard(bitboard uint64, pieceType enum.Piece) string {
 	var bitboardStr strings.Builder
 
-	var rank, file byte
-
-	for rank = 7; rank >= 0; rank-- {
-		bitboardStr.WriteByte(rank + 1 + '0')
+	for rank := 7; rank >= 0; rank-- {
+		bitboardStr.WriteByte(byte(rank) + 1 + '0')
 		bitboardStr.WriteString("  ")
 
-		for file = 0; file < 8; file++ {
+		for file := 0; file < 8; file++ {
 			square := uint64(1 << (8*rank + file))
 
 			symbol := pieceSymbols[pieceType]
@@ -57,13 +55,11 @@ func FormatPosition(bitboards [12]uint64, activeColor enum.Color,
 	enPasssantTarget int, castlingRights enum.CastlingFlag) string {
 	var positionStr strings.Builder
 
-	var rank, file byte
-
-	for rank = 7; rank >= 0; rank-- {
-		positionStr.WriteByte(rank + 1 + '0')
+	for rank := 7; rank >= 0; rank-- {
+		positionStr.WriteByte(byte(rank) + 1 + '0')
 		positionStr.WriteString("  ")
 
-		for file = 0; file < 8; file++ {
+		for file := 0; file < 8; file++ {
 			square := uint64(1 << (8*rank + file))
 
 			var symbol rune = '.'
