@@ -10,17 +10,17 @@ import (
 //
 //	0-5:   To (destination) square index;
 //	6-11:  From (origin/source) square index;
-//	12-13: Promotion piece (00 - knight, 01 - bishop, 10 - rook, 11 - queen);
+//	12-13: Promotion piece (see [enum.PromotionFlag]);
 //	14-15: Move type (see [enum.MoveType]).
 type Move uint16
 
 func NewMove(to, from, promotionPiece, moveType int) Move {
 	return Move(to | (from << 6) | (promotionPiece << 12) | (moveType << 14))
 }
-func (m Move) To() int                    { return int(m & 0x3F) }
-func (m Move) From() int                  { return int(m>>6) & 0x3F }
-func (m Move) PromotionPiece() enum.Piece { return enum.Piece(m>>12) & 0x3 }
-func (m Move) Type() enum.MoveType        { return enum.MoveType(m>>14) & 0x3 }
+func (m Move) To() int                            { return int(m & 0x3F) }
+func (m Move) From() int                          { return int(m>>6) & 0x3F }
+func (m Move) PromotionPiece() enum.PromotionFlag { return enum.PromotionFlag(m>>12) & 0x3 }
+func (m Move) Type() enum.MoveType                { return enum.MoveType(m>>14) & 0x3 }
 
 // MoveList is used to store moves.
 type MoveList struct {
@@ -60,6 +60,14 @@ const (
 	RANK_7 uint64 = 0xFF000000000000
 	// Bitmask of the eight rank.
 	RANK_8 uint64 = 0xFF00000000000000
+	// White O-O castling path. Includes the king square.
+	WHITE_KING_CASTLING_PATH uint64 = 0x70
+	// White O-O-O castling path. Includes the king square.
+	WHITE_QUEEN_CASTLING_PATH uint64 = 0x1C
+	// Black O-O castling path. Includes the king square.
+	BLACK_KING_CASTLING_PATH uint64 = 0x7000000000000000
+	// Black O-O-O castling path. Includes the king square.
+	BLACK_QUEEN_CASTLING_PATH uint64 = 0x1C00000000000000
 )
 
 // BitScan returns the index of the Least Significant Bit (LSB) withing a bitboard.
@@ -649,6 +657,118 @@ func genNormalPseudoLegalMoves(pieceType enum.Piece, bitboard, allies,
 			}
 		}
 	}
+}
+
+// genKingPseudoLegalMoves appends pseudo-legal moves (quiet moves and captures) for the king on
+// the given bitboard to the specified move list.
+// NOTE: the allies and enemies bitboards must exclude the allied king!
+func genKingPseudoLegalMoves(square int, allies, enemies, attacked uint64,
+	castlingRights enum.CastlingFlag, moveList *MoveList, color enum.Color) {
+	occupancy := allies | enemies
+	// Lookup normal moves.
+	attacks := KingAttacks[square]
+	for attacks > 0 {
+		attackedSquare := PopLSB(&attacks)
+		if 1<<attackedSquare&enemies != 0 ||
+			1<<attackedSquare&allies == 0 {
+			moveList.Push(NewMove(attackedSquare, square, 0, enum.MoveNormal))
+		}
+	}
+
+	// Handle castling.
+	if color == enum.ColorWhite {
+		// White O-O.
+		if castlingRights&enum.CastlingWhiteKing != 0 &&
+			occupancy&WHITE_KING_CASTLING_PATH == 0 &&
+			attacked&WHITE_KING_CASTLING_PATH == 0 {
+			moveList.Push(NewMove(enum.SG1, square, 0, enum.MoveCastling))
+		}
+		// White O-O-O.
+		if castlingRights&enum.CastlingWhiteQueen != 0 &&
+			occupancy&WHITE_QUEEN_CASTLING_PATH == 0 &&
+			attacked&WHITE_QUEEN_CASTLING_PATH == 0 {
+			moveList.Push(NewMove(enum.SC1, square, 0, enum.MoveCastling))
+		}
+	} else {
+		// Black O-O.
+		if castlingRights&enum.CastlingBlackKing != 0 &&
+			occupancy&BLACK_KING_CASTLING_PATH == 0 &&
+			attacked&BLACK_KING_CASTLING_PATH == 0 {
+			moveList.Push(NewMove(enum.SG8, square, 0, enum.MoveCastling))
+		}
+		// Black O-O-O.
+		if castlingRights&enum.CastlingBlackQueen != 0 &&
+			occupancy&BLACK_QUEEN_CASTLING_PATH == 0 &&
+			attacked&BLACK_QUEEN_CASTLING_PATH == 0 {
+			moveList.Push(NewMove(enum.SC8, square, 0, enum.MoveCastling))
+		}
+	}
+}
+
+// getPieceTypeFromSquare returns the type of the piece that stands on the specified square.
+// Returns -1 if there is no piece on the square.
+func getPieceTypeFromSquare(bitboards [12]uint64, square uint64) enum.Piece {
+	for pieceType, bitboard := range bitboards {
+		if square&bitboard != 0 {
+			return pieceType
+		}
+	}
+	return -1
+}
+
+// MakeMove performs the move.
+func MakeMove(bitboards *[12]uint64, move Move) {
+	var from, to uint64 = 1 << move.From(), 1 << move.To()
+	fromTo := from ^ to
+	movedPieceType := getPieceTypeFromSquare(*bitboards, from)
+
+	switch move.Type() {
+	case enum.MoveNormal:
+		// If the move is capture.
+		capturedPieceType := getPieceTypeFromSquare(*bitboards, to)
+		if capturedPieceType != -1 {
+			// Remove the captured piece from the board.
+			bitboards[capturedPieceType] ^= to
+		}
+
+	case enum.MoveEnPassant:
+		// Remove the captured pawn from the board.
+		if movedPieceType == enum.PieceWPawn {
+			bitboards[enum.PieceBPawn] ^= to >> 8
+		} else {
+			bitboards[enum.PieceWPawn] ^= to << 8
+		}
+
+	case enum.MoveCastling:
+		if to == enum.G1 || to == enum.G8 {
+			// O-O.
+			bitboards[movedPieceType-2] ^= (to << 1) ^ (to >> 1)
+		} else if to == enum.C1 || to == enum.C8 {
+			// O-O-O.
+			bitboards[movedPieceType-2] ^= (to >> 2) ^ (to << 1)
+		}
+
+	case enum.MovePromotion:
+		// If the move is capture-promotion.
+		capturedPieceType := getPieceTypeFromSquare(*bitboards, to)
+		if capturedPieceType != -1 {
+			// Remove the captured piece from the board.
+			bitboards[capturedPieceType] ^= to
+		}
+
+		// Remove a promoted pawn from the board.
+		bitboards[movedPieceType] ^= from
+		// Place a new piece.
+		if movedPieceType == enum.PieceWPawn {
+			bitboards[move.PromotionPiece()+1] ^= to
+		} else {
+			bitboards[move.PromotionPiece()+7] ^= to
+		}
+		return
+	}
+
+	// Move piece from the source square to the destination square.
+	bitboards[movedPieceType] ^= fromTo
 }
 
 // InitAttackTables initializes the predefined attack tables.

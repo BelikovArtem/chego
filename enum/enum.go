@@ -20,6 +20,17 @@ const (
 	PieceBKing
 )
 
+// PromotionFlag is allias type to avoid bothersome conversion between int and Color.
+type PromotionFlag = int
+
+// 00 - knight, 01 - bishop, 10 - rook, 11 - queen
+const (
+	PromotionKnight PromotionFlag = iota
+	PromotionBishop
+	PromotionRook
+	PromotionQueen
+)
+
 // Color is allias type to avoid bothersome conversion between int and Color.
 type Color = int
 
