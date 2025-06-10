@@ -1,4 +1,4 @@
-package chego
+package movegen
 
 import (
 	"chego/cli"
@@ -34,7 +34,7 @@ func TestGenPawnAttacks(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		got := GenPawnAttacks(tc.bitboard, tc.color)
+		got := genPawnAttacks(tc.bitboard, tc.color)
 		if got != tc.expected {
 			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWPawn))
@@ -57,7 +57,7 @@ func TestGenKnightAttacks(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		got := GenKnightAttacks(tc.bitboard)
+		got := genKnightAttacks(tc.bitboard)
 		if got != tc.expected {
 			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWKnight))
@@ -79,7 +79,7 @@ func TestGenKingAttacks(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		got := GenKingAttacks(tc.bitboard)
+		got := genKingAttacks(tc.bitboard)
 		if got != tc.expected {
 			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWKing))
@@ -98,10 +98,12 @@ func TestGenBishopAttacks(t *testing.T) {
 	}{
 		{"Bishop D5 - Blocked B3", enum.D5, enum.B3, enum.C4 | enum.B3 | enum.E4 | enum.F3 |
 			enum.G2 | enum.H1 | enum.C6 | enum.B7 | enum.A8 | enum.E6 | enum.F7 | enum.G8},
+		{"Bishop E2 - Blocked F3", enum.E2, enum.F3 | enum.A6, enum.D1 | enum.F1 | enum.D3 |
+			enum.F3 | enum.C4 | enum.B5 | enum.A6},
 	}
 
 	for _, tc := range testcases {
-		got := GenBishopAttacks(tc.bitboard, tc.occupancy)
+		got := genBishopAttacks(tc.bitboard, tc.occupancy)
 		if got != tc.expected {
 			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWBishop))
@@ -127,7 +129,7 @@ func TestGenRookAttacks(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		got := GenRookAttacks(tc.bitboard, tc.occupancy)
+		got := genRookAttacks(tc.bitboard, tc.occupancy)
 		if got != tc.expected {
 			t.Logf("test \"%s\" failed\n", tc.name)
 			t.Logf("expected bitboard:\n\n%s\n\n", cli.FormatBitboard(tc.expected, enum.PieceWRook))
@@ -157,20 +159,20 @@ func TestBitScan(t *testing.T) {
 func TestGenMagicNumber(t *testing.T) {
 	t.Logf("\n\n")
 	for square := 0; square < 64; square++ {
-		t.Logf("%x,\n", GenMagicNumber(square, true))
+		t.Logf("%x,\n", genMagicNumber(square, true))
 	}
 
 	t.Logf("\n\n")
 	for square := 0; square < 64; square++ {
-		t.Logf("%x,\n", GenMagicNumber(square, false))
+		t.Logf("%x,\n", genMagicNumber(square, false))
 	}
 }
 
 func TestLookupBishopAttacks(t *testing.T) {
 	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
 	for square := uint64(1); square != 0; square <<= 1 {
-		got := LookupBishopAttacks(BitScan(square), occupancy)
-		expected := GenBishopAttacks(square, occupancy)
+		got := lookupBishopAttacks(BitScan(square), occupancy)
+		expected := genBishopAttacks(square, occupancy)
 
 		if got != expected {
 			t.Logf("expected:\n\n%s\n\n", cli.FormatBitboard(expected, enum.PieceWBishop))
@@ -183,8 +185,8 @@ func TestLookupBishopAttacks(t *testing.T) {
 func TestLookupRookAttacks(t *testing.T) {
 	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
 	for square := uint64(1); square != 0; square <<= 1 {
-		got := LookupRookAttacks(BitScan(square), occupancy)
-		expected := GenRookAttacks(square, occupancy)
+		got := lookupRookAttacks(BitScan(square), occupancy)
+		expected := genRookAttacks(square, occupancy)
 
 		if got != expected {
 			t.Logf("got:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWRook))
@@ -197,9 +199,9 @@ func TestLookupRookAttacks(t *testing.T) {
 func TestLookupQueenAttacks(t *testing.T) {
 	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
 	for square := uint64(1); square != 0; square <<= 1 {
-		got := LookupQueenAttacks(BitScan(square), occupancy)
-		expected := GenBishopAttacks(square, occupancy) |
-			GenRookAttacks(square, occupancy)
+		got := lookupQueenAttacks(BitScan(square), occupancy)
+		expected := genBishopAttacks(square, occupancy) |
+			genRookAttacks(square, occupancy)
 
 		if got != expected {
 			t.Logf("got:\n\n%s\n\n", cli.FormatBitboard(got, enum.PieceWQueen))
@@ -256,16 +258,17 @@ func TestIsSquareUnderAttack(t *testing.T) {
 
 func TestGenPawnsPseudoLegalMoves(t *testing.T) {
 	testcases := []struct {
-		name     string
-		bitboard uint64
-		allies   uint64
-		enemies  uint64
-		color    enum.Color
-		expected MoveList
+		name            string
+		bitboard        uint64
+		allies          uint64
+		enemies         uint64
+		enPassantTarget uint64
+		color           enum.Color
+		expected        MoveList
 	}{
 		{
 			"8/8/8/8/p1p1p1p1/8/PPPPPPPP/8 white pawns",
-			0xFF00, 0x0, 0x55000000, enum.ColorWhite,
+			0xFF00, 0x0, 0x55000000, 0x0, enum.ColorWhite,
 			MoveList{
 				[218]Move{
 					NewMove(enum.SA3, enum.SA2, 0, enum.MoveNormal),
@@ -285,7 +288,7 @@ func TestGenPawnsPseudoLegalMoves(t *testing.T) {
 		},
 		{
 			"8/8/8/8/p1p1p1p1/8/PPPPPPPP/8 black pawns",
-			0x55000000, 0x0, 0xFF00, enum.ColorBlack,
+			0x55000000, 0x0, 0xFF00, 0x0, enum.ColorBlack,
 			MoveList{
 				[218]Move{
 					NewMove(enum.SA3, enum.SA4, 0, enum.MoveNormal),
@@ -297,7 +300,7 @@ func TestGenPawnsPseudoLegalMoves(t *testing.T) {
 		},
 		{
 			"8/4P3/8/8/8/8/8/8 white quiet promotion",
-			enum.E7, 0x0, 0x0, enum.ColorWhite,
+			enum.E7, 0x0, 0x0, 0x0, enum.ColorWhite,
 			MoveList{
 				[218]Move{
 					NewMove(enum.SE8, enum.SE7, 0, enum.MovePromotion),
@@ -306,7 +309,7 @@ func TestGenPawnsPseudoLegalMoves(t *testing.T) {
 		},
 		{
 			"8/8/8/8/8/8/1p6/2P5 black quiet and capture promotions",
-			enum.B2, 0x0, enum.C1, enum.ColorBlack,
+			enum.B2, 0x0, enum.C1, 0x0, enum.ColorBlack,
 			MoveList{
 				[218]Move{
 					NewMove(enum.SB1, enum.SB2, 0, enum.MovePromotion),
@@ -314,11 +317,22 @@ func TestGenPawnsPseudoLegalMoves(t *testing.T) {
 				}, 2,
 			},
 		},
+		{
+			"8/8/8/4Pp2/8/8/8/8 white en passant",
+			enum.E5, 0x0, enum.F5, enum.F6, enum.ColorWhite,
+			MoveList{
+				[218]Move{
+					NewMove(enum.SE6, enum.SE5, 0, enum.MoveNormal),
+					NewMove(enum.SF6, enum.SE5, 0, enum.MoveEnPassant),
+				}, 2,
+			},
+		},
 	}
 
 	for _, tc := range testcases {
 		ml := MoveList{}
-		genPawnsPseudoLegalMoves(tc.bitboard, tc.allies, tc.enemies, tc.color, &ml)
+		genPawnsPseudoLegalMoves(tc.bitboard, tc.allies, tc.enemies, tc.enPassantTarget,
+			tc.color, &ml)
 
 		for i, move := range ml.Moves {
 			if tc.expected.Moves[i] != move {
@@ -407,7 +421,7 @@ func TestGenKingPsuedoLegalMoves(t *testing.T) {
 
 		for i, move := range ml.Moves {
 			if tc.expected.Moves[i] != move {
-				t.Fatalf("testcase \"%s\" failed: expected %v, got %v\n", tc.name, tc.expected, ml)
+				t.Fatalf("test \"%s\" failed: expected %v, got %v\n", tc.name, tc.expected, ml)
 			}
 		}
 	}
@@ -470,50 +484,131 @@ func TestMakeMove(t *testing.T) {
 
 		got := fen.FromBitboardArray(bitboards)
 		if got != tc.fenExpected {
-			t.Fatalf("testcase \"%s\" failed: expected %s got %s", tc.name, tc.fenExpected, got)
+			t.Fatalf("test \"%s\" failed: expected %s got %s", tc.name, tc.fenExpected, got)
+		}
+	}
+}
+
+func TestGenPseudoLegalMoves(t *testing.T) {
+	testcases := []struct {
+		fenStr          string
+		color           enum.Color
+		castlingRights  enum.CastlingFlag
+		enPassantTarget uint64
+		expected        MoveList
+	}{
+		{
+			"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R",
+			enum.ColorWhite, 0xF, 0x0,
+			MoveList{
+				[218]Move{
+					NewMove(enum.SA3, enum.SA2, 0, enum.MoveNormal),
+					NewMove(enum.SA4, enum.SA2, 0, enum.MoveNormal),
+					NewMove(enum.SB3, enum.SB2, 0, enum.MoveNormal),
+					NewMove(enum.SG3, enum.SG2, 0, enum.MoveNormal),
+					NewMove(enum.SG4, enum.SG2, 0, enum.MoveNormal),
+					NewMove(enum.SH3, enum.SG2, 0, enum.MoveNormal),
+					NewMove(enum.SD6, enum.SD5, 0, enum.MoveNormal),
+					NewMove(enum.SE6, enum.SD5, 0, enum.MoveNormal),
+					NewMove(enum.SB1, enum.SC3, 0, enum.MoveNormal),
+					NewMove(enum.SD1, enum.SC3, 0, enum.MoveNormal),
+					NewMove(enum.SA4, enum.SC3, 0, enum.MoveNormal),
+					NewMove(enum.SB5, enum.SC3, 0, enum.MoveNormal),
+					NewMove(enum.SD3, enum.SE5, 0, enum.MoveNormal),
+					NewMove(enum.SC4, enum.SE5, 0, enum.MoveNormal),
+					NewMove(enum.SG4, enum.SE5, 0, enum.MoveNormal),
+					NewMove(enum.SC6, enum.SE5, 0, enum.MoveNormal),
+					NewMove(enum.SG6, enum.SE5, 0, enum.MoveNormal),
+					NewMove(enum.SD7, enum.SE5, 0, enum.MoveNormal),
+					NewMove(enum.SF7, enum.SE5, 0, enum.MoveNormal),
+					NewMove(enum.SC1, enum.SD2, 0, enum.MoveNormal),
+					NewMove(enum.SE3, enum.SD2, 0, enum.MoveNormal),
+					NewMove(enum.SF4, enum.SD2, 0, enum.MoveNormal),
+					NewMove(enum.SG5, enum.SD2, 0, enum.MoveNormal),
+					NewMove(enum.SH6, enum.SD2, 0, enum.MoveNormal),
+					NewMove(enum.SD1, enum.SE2, 0, enum.MoveNormal),
+					NewMove(enum.SF1, enum.SE2, 0, enum.MoveNormal),
+					NewMove(enum.SD3, enum.SE2, 0, enum.MoveNormal),
+					NewMove(enum.SC4, enum.SE2, 0, enum.MoveNormal),
+					NewMove(enum.SB5, enum.SE2, 0, enum.MoveNormal),
+					NewMove(enum.SA6, enum.SE2, 0, enum.MoveNormal),
+					NewMove(enum.SB1, enum.SA1, 0, enum.MoveNormal),
+					NewMove(enum.SC1, enum.SA1, 0, enum.MoveNormal),
+					NewMove(enum.SD1, enum.SA1, 0, enum.MoveNormal),
+					NewMove(enum.SF1, enum.SH1, 0, enum.MoveNormal),
+					NewMove(enum.SG1, enum.SH1, 0, enum.MoveNormal),
+					NewMove(enum.SD3, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SE3, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SG3, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SH3, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SF4, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SG4, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SF5, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SH5, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SF6, enum.SF3, 0, enum.MoveNormal),
+					NewMove(enum.SD1, enum.SE1, 0, enum.MoveNormal),
+					NewMove(enum.SF1, enum.SE1, 0, enum.MoveNormal),
+					NewMove(enum.SG1, enum.SE1, 0, enum.MoveCastling),
+					NewMove(enum.SC1, enum.SE1, 0, enum.MoveCastling),
+				}, 35,
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		ml := MoveList{}
+
+		GenPseudoLegalMoves(fen.ToBitboardArray(tc.fenStr), tc.color, &ml, tc.castlingRights,
+			tc.enPassantTarget)
+
+		for i, move := range ml.Moves {
+			if move != tc.expected.Moves[i] {
+				t.Fatalf("test \"%s\" failed: expected %v, got %v", tc.fenStr,
+					tc.expected.Moves, ml.Moves)
+			}
 		}
 	}
 }
 
 func BenchmarkGenPawnAttacks(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		GenPawnAttacks(enum.B4, enum.ColorWhite)
+		genPawnAttacks(enum.B4, enum.ColorWhite)
 	}
 }
 
 func BenchmarkGenKnightAttacks(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		GenKnightAttacks(enum.B4)
+		genKnightAttacks(enum.B4)
 	}
 }
 
 func BenchmarkGenKingAttakcs(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		GenKingAttacks(enum.B4)
+		genKingAttacks(enum.B4)
 	}
 }
 
 func BenchmarkGenBishopAttacks(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		GenBishopAttacks(enum.D5, enum.B3)
+		genBishopAttacks(enum.D5, enum.B3)
 	}
 }
 
 func BenchmarkGenRookAttacks(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		GenRookAttacks(enum.D5, enum.B3)
+		genRookAttacks(enum.D5, enum.B3)
 	}
 }
 
 func BenchmarkInitBishopReleventOccupancy(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		InitBishopRelevantOccupancy()
+		initBishopRelevantOccupancy()
 	}
 }
 
 func BenchmarkInitRookReleventOccupancy(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		InitRookRelevantOccupancy()
+		initRookRelevantOccupancy()
 	}
 }
 
@@ -522,7 +617,7 @@ func BenchmarkLookupBishopAttacks(b *testing.B) {
 	InitAttackTables()
 
 	for b.Loop() {
-		LookupBishopAttacks(35, 0x0)
+		lookupBishopAttacks(35, 0x0)
 	}
 }
 
@@ -530,7 +625,7 @@ func BenchmarkLookupRookAttacks(b *testing.B) {
 	InitAttackTables()
 
 	for b.Loop() {
-		LookupRookAttacks(35, 0x0)
+		lookupRookAttacks(35, 0x0)
 	}
 }
 
@@ -538,13 +633,13 @@ func BenchmarkLookupQueenAttacks(b *testing.B) {
 	InitAttackTables()
 
 	for b.Loop() {
-		LookupQueenAttacks(35, 0x0)
+		lookupQueenAttacks(35, 0x0)
 	}
 }
 
 func BenchmarkGenMagicNumber(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		GenMagicNumber(23, false)
+		genMagicNumber(23, false)
 	}
 }
 
@@ -561,7 +656,7 @@ func BenchmarkGenPawnsPseudoLegalMoves(b *testing.B) {
 	InitAttackTables()
 
 	for b.Loop() {
-		genPawnsPseudoLegalMoves(0xFF00, 0x0, 0x55000000, enum.ColorWhite, &MoveList{})
+		genPawnsPseudoLegalMoves(0xFF00, 0x0, 0x55000000, 0x0, enum.ColorWhite, &MoveList{})
 	}
 }
 
@@ -571,6 +666,15 @@ func BenchmarkGenKingPseudoLegalMoves(b *testing.B) {
 	for b.Loop() {
 		genKingPseudoLegalMoves(enum.SE1, 0x81, 0x0, 0x0, enum.CastlingWhiteKing|
 			enum.CastlingWhiteQueen, &MoveList{}, enum.ColorWhite)
+	}
+}
+
+func BenchmarkGenPseudoLegalMoves(b *testing.B) {
+	InitAttackTables()
+	bitboards := fen.ToBitboardArray("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R")
+
+	for b.Loop() {
+		GenPseudoLegalMoves(bitboards, enum.ColorWhite, &MoveList{}, 0xF, 0x0)
 	}
 }
 
