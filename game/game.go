@@ -1,0 +1,157 @@
+// Package game impements chess game state management.
+// Make sure to call [movegen.InitAttackTables] function ONCE before using this package.
+package game
+
+import (
+	"chego/enum"
+	"chego/fen"
+	"chego/movegen"
+)
+
+type CompletedMove struct {
+	// Game state after completing the move to enable move undo and state restoration.
+	FenString string
+	// Move itself.
+	Move movegen.Move
+}
+
+// Game represents a single chess game state.
+type Game struct {
+	LegalMoves      movegen.MoveList
+	Bitboards       [12]uint64
+	MoveStack       []CompletedMove
+	EnPassantTarget int
+	CastlingRights  enum.CastlingFlag
+	ActiveColor     enum.Color
+	HalfmoveCnt     int
+	FullmoveCnt     int
+}
+
+// NewGame creates a new game initialized from the default chess position.
+// Generates legal moves.
+func NewGame() *Game {
+	g := &Game{
+		Bitboards:       fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"),
+		MoveStack:       make([]CompletedMove, 0),
+		EnPassantTarget: 0,
+		CastlingRights:  0xF,
+		ActiveColor:     enum.ColorWhite,
+		HalfmoveCnt:     0,
+		FullmoveCnt:     1,
+	}
+
+	movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget)
+	return g
+}
+
+// SetState sets the game state and generates the legal moves the updated position.
+func (g *Game) SetState(bitboards [12]uint64, enPassantTarget int, castlingRights enum.CastlingFlag,
+	activeColor enum.Color, halfmoveCnt, fullmoveCnt int) {
+	g.Bitboards = bitboards
+	g.EnPassantTarget = enPassantTarget
+	g.CastlingRights = castlingRights
+	g.ActiveColor = activeColor
+	g.HalfmoveCnt = halfmoveCnt
+	g.FullmoveCnt = fullmoveCnt
+
+	movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget)
+}
+
+// PushMove updates the game state by performing the specified move.
+// It is a caller responsibility to check if the specified move is legal.
+// Does not generate new legal moves.
+func (g *Game) PushMove(move movegen.Move) {
+	movedPiece := movegen.GetPieceTypeFromSquare(g.Bitboards, 1<<move.From())
+	isCapture := movegen.GetPieceTypeFromSquare(g.Bitboards, 1<<move.To()) != -1
+	movegen.MakeMove(&g.Bitboards, move)
+
+	// Reset the en passant target since the en passant capture is possible only for 1 move.
+	g.EnPassantTarget = 0
+
+	switch movedPiece {
+	case enum.PieceWPawn, enum.PieceBPawn:
+		// Set en passant target.
+		if g.ActiveColor == enum.ColorWhite && move.From()-move.To() == -16 {
+			g.EnPassantTarget = move.To() - 8
+		} else if g.ActiveColor == enum.ColorBlack && move.From()-move.To() == 16 {
+			g.EnPassantTarget = move.To() + 8
+		}
+	case enum.PieceWKing:
+		// Disable castling rights for white.
+		g.CastlingRights &= ^(enum.CastlingWhiteShort | enum.CastlingWhiteLong)
+	case enum.PieceBKing:
+		// Disable castling rights for black.
+		g.CastlingRights &= ^(enum.CastlingBlackShort | enum.CastlingBlackLong)
+	}
+
+	// Disable castling rights if the rooks aren't standing on their initial positions.
+	if g.Bitboards[enum.PieceWRook]&enum.A1 == 0 {
+		g.CastlingRights &= ^enum.CastlingWhiteLong
+	}
+	if g.Bitboards[enum.PieceWRook]&enum.H1 == 0 {
+		g.CastlingRights &= ^enum.CastlingWhiteShort
+	}
+	if g.Bitboards[enum.PieceBRook]&enum.A8 == 0 {
+		g.CastlingRights &= ^enum.CastlingBlackLong
+	}
+	if g.Bitboards[enum.PieceBRook]&enum.H8 == 0 {
+		g.CastlingRights &= ^enum.CastlingBlackShort
+	}
+
+	if isCapture ||
+		movedPiece == enum.PieceWPawn || movedPiece == enum.PieceBPawn {
+		g.HalfmoveCnt = 0
+	} else {
+		g.HalfmoveCnt++
+	}
+
+	// Increment the full move counter after black moves.
+	if g.ActiveColor == enum.ColorBlack {
+		g.FullmoveCnt++
+	}
+
+	// Switch the active color.
+	g.ActiveColor ^= 1
+
+	// Store the completed move.
+	g.MoveStack = append(g.MoveStack, CompletedMove{
+		Move: move,
+		FenString: fen.Serialize(g.Bitboards, g.ActiveColor, g.CastlingRights,
+			g.EnPassantTarget, g.HalfmoveCnt, g.FullmoveCnt),
+	})
+}
+
+// PopMove pops the last completed move and restores the game state.
+// If there is no completed moves, this function is no-op.
+// Also regenerates legal moves.
+func (g *Game) PopMove() {
+	if len(g.MoveStack) == 0 {
+		return
+	}
+
+	g.MoveStack = g.MoveStack[:len(g.MoveStack)-1]
+
+	if len(g.MoveStack) > 0 {
+		// bitboards, activeColor, enPassantTarget, halfmoveCnt, fullmoveCnt
+		b, a, c, e, h, f := fen.Parse(g.MoveStack[len(g.MoveStack)-1].FenString)
+		g.SetState(b, e, c, a, h, f)
+		movegen.GenLegalMoves(b, a, c, e)
+	} else {
+		// Restore initial game state.
+		newGame := NewGame()
+		g.SetState(newGame.Bitboards, newGame.EnPassantTarget, newGame.CastlingRights,
+			newGame.ActiveColor, newGame.HalfmoveCnt, newGame.FullmoveCnt)
+		g.LegalMoves = newGame.LegalMoves
+	}
+}
+
+func (g *Game) IsMoveLegal(move movegen.Move) bool {
+	// Check if the move is legal.
+	for _, legalMove := range g.LegalMoves.Moves {
+		if legalMove.From() == move.From() && legalMove.To() == move.To() &&
+			legalMove.Type() == move.Type() {
+			return true
+		}
+	}
+	return false
+}

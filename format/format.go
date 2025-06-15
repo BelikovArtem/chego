@@ -1,6 +1,6 @@
-// Package cli provides functions to print a chess board.
-// It is used mainly to visualize testing process.
-package cli
+// Package format provides functions to format a chess boards and positions.
+// It is used mainly to visualize test cases.
+package format
 
 import (
 	"chego/enum"
@@ -24,8 +24,8 @@ var squareString = [64]string{
 	"a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
 }
 
-// FormatBitboard formats a single bitboard into a string.
-func FormatBitboard(bitboard uint64, pieceType enum.Piece) string {
+// Bitboard formats a single bitboard into a string.
+func Bitboard(bitboard uint64, pieceType enum.Piece) string {
 	var bitboardStr strings.Builder
 
 	for rank := 7; rank >= 0; rank-- {
@@ -50,8 +50,8 @@ func FormatBitboard(bitboard uint64, pieceType enum.Piece) string {
 	return bitboardStr.String()
 }
 
-// FormatPosition formats a full chess position into a string.
-func FormatPosition(bitboards [12]uint64, activeColor enum.Color,
+// Position formats a full chess position into a string.
+func Position(bitboards [12]uint64, activeColor enum.Color,
 	enPasssantTarget int, castlingRights enum.CastlingFlag) string {
 	var positionStr strings.Builder
 
@@ -85,23 +85,23 @@ func FormatPosition(bitboards [12]uint64, activeColor enum.Color,
 		positionStr.WriteString("black\nEn passant: ")
 	}
 
-	if enPasssantTarget == enum.NoSquare {
+	if enPasssantTarget == 0 {
 		positionStr.WriteString("none\nCastling rights: ")
 	} else {
 		positionStr.WriteString(squareString[enPasssantTarget])
 		positionStr.WriteString("\nCastling rights: ")
 	}
 
-	if castlingRights&enum.CastlingWhiteKing != 0 {
+	if castlingRights&enum.CastlingWhiteShort != 0 {
 		positionStr.WriteByte('K')
 	}
-	if castlingRights&enum.CastlingWhiteQueen != 0 {
+	if castlingRights&enum.CastlingWhiteLong != 0 {
 		positionStr.WriteByte('Q')
 	}
-	if castlingRights&enum.CastlingBlackKing != 0 {
+	if castlingRights&enum.CastlingBlackShort != 0 {
 		positionStr.WriteByte('k')
 	}
-	if castlingRights&enum.CastlingBlackQueen != 0 {
+	if castlingRights&enum.CastlingBlackLong != 0 {
 		positionStr.WriteByte('q')
 	}
 

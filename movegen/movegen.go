@@ -70,31 +70,6 @@ const (
 	BLACK_QUEEN_CASTLING_PATH uint64 = 0x1C00000000000000
 )
 
-// BitScan returns the index of the Least Significant Bit (LSB) withing a bitboard.
-// bitboard&-bitboard gives the LSB which is then run through the hashing scheme to index a lookup.
-func BitScan(bitboard uint64) int { return bitScanLookup[bitboard&-bitboard*BITSCAN_MAGIC>>58] }
-
-// PopLSB pops the Least Significant Bit from a bitboard and returns its index.
-func PopLSB(bitboard *uint64) int {
-	lsb := BitScan(*bitboard)
-	*bitboard &= *bitboard - 1
-	return lsb
-}
-
-// CountBits returns the number of bits set within a bitboard.
-func CountBits(bitboard uint64) int {
-	var cnt int
-	for bitboard > 0 {
-		cnt++
-		bitboard &= bitboard - 1
-	}
-	return cnt
-}
-
-// pseudoRandUint64FewBits returns a pseudo-random uint64 with a few set bits.
-// It is used only for a magic number generation.
-func pseudoRandUint64FewBits() uint64 { return rand.Uint64() & rand.Uint64() & rand.Uint64() }
-
 var (
 	// Precalculated lookup table of LSB indices for 64 uints.
 	// See http://pradu.us/old/Nov27_2008/Buzz/research/magic/Bitboards.pdf section 3.2
@@ -278,6 +253,187 @@ var (
 		12, 11, 11, 11, 11, 11, 11, 12,
 	}
 )
+
+// InitAttackTables initializes the predefined attack tables.
+// Call this function ONCE as close as possible to the start of your program.
+// NOTE: Move generation will not work if the attack tables are not initialized.
+func InitAttackTables() {
+	initBishopRelevantOccupancy()
+	initRookRelevantOccupancy()
+
+	for square := 0; square < 64; square++ {
+		var squareBB uint64 = 1 << square
+
+		pawnAttacks[enum.ColorWhite][square] = genPawnAttacks(squareBB, enum.ColorWhite)
+		pawnAttacks[enum.ColorBlack][square] = genPawnAttacks(squareBB, enum.ColorBlack)
+
+		knightAttacks[square] = genKnightAttacks(squareBB)
+
+		kingAttacks[square] = genKingAttacks(squareBB)
+
+		bitCount := bishopRelevantOccupancyBitCount[square]
+		for i := 0; i < 1<<bitCount; i++ {
+			occupancy := genOccupancy(i, bitCount, bishopRelevantOccupancy[square])
+
+			magicKey := occupancy * bishopMagicNumberLookup[square] >> (64 - bitCount)
+
+			bishopAttacks[square][magicKey] = genBishopAttacks(squareBB, occupancy)
+		}
+
+		bitCount = rookRelevantOccupancyBitCount[square]
+		for i := 0; i < 1<<bitCount; i++ {
+			occupancy := genOccupancy(i, bitCount, rookRelevantOccupancy[square])
+
+			magicKey := occupancy * rookMagicNumberLookup[square] >> (64 - bitCount)
+
+			rookAttacks[square][magicKey] = genRookAttacks(squareBB, occupancy)
+		}
+	}
+}
+
+// GenLegalMoves generates legal moves for the currently active color.
+// This involves two steps:
+//
+//  1. Generate pseudo-legal moves for all pieces of the active color.
+//  2. Filter out illegal moves using the copy-make approach.
+func GenLegalMoves(bitboards [12]uint64, color enum.Color, castlingRights enum.CastlingFlag,
+	enPassantTarget int) MoveList {
+	var pseudoLegal, legal MoveList
+
+	genPseudoLegalMoves(bitboards, color, &pseudoLegal, castlingRights, 1<<enPassantTarget)
+
+	var occupancy uint64
+	for i := enum.PieceWPawn; i <= enum.PieceBKing; i++ {
+		occupancy |= bitboards[i]
+	}
+
+	var i byte
+	for i = 0; i < pseudoLegal.LastMoveIndex; i++ {
+		copy := bitboards
+
+		move := pseudoLegal.Moves[i]
+
+		MakeMove(&copy, move)
+		// Update occupancy.
+		var from, to uint64 = 1 << move.From(), 1 << move.To()
+		fromTo := from ^ to
+		_occupancy := occupancy ^ fromTo
+
+		kingSquare := BitScan(copy[enum.PieceWKing+6*color])
+
+		// If the allied king is not in check, the move is legal.
+		if !IsSquareUnderAttack(copy, _occupancy, kingSquare, 1^color) {
+			legal.Push(move)
+		}
+	}
+
+	return legal
+}
+
+// MakeMove modifies the piece placement in the given bitboard array by performing the specified move.
+func MakeMove(bitboards *[12]uint64, move Move) {
+	var from, to uint64 = 1 << move.From(), 1 << move.To()
+	fromTo := from ^ to
+	movedPiece := GetPieceTypeFromSquare(*bitboards, from)
+
+	switch move.Type() {
+	case enum.MoveNormal:
+		// If the move is capture.
+		capturedPieceType := GetPieceTypeFromSquare(*bitboards, to)
+		if capturedPieceType != -1 {
+			// Remove the captured piece from the board.
+			bitboards[capturedPieceType] ^= to
+		}
+
+	case enum.MoveEnPassant:
+		// Remove the captured pawn from the board.
+		if movedPiece == enum.PieceWPawn {
+			bitboards[enum.PieceBPawn] ^= to >> 8
+		} else {
+			bitboards[enum.PieceWPawn] ^= to << 8
+		}
+
+	case enum.MoveCastling:
+		if to == enum.G1 || to == enum.G8 {
+			// O-O.
+			bitboards[movedPiece-2] ^= (to << 1) ^ (to >> 1)
+		} else if to == enum.C1 || to == enum.C8 {
+			// O-O-O.
+			bitboards[movedPiece-2] ^= (to >> 2) ^ (to << 1)
+		}
+
+	case enum.MovePromotion:
+		// If the move is capture-promotion.
+		capturedPieceType := GetPieceTypeFromSquare(*bitboards, to)
+		if capturedPieceType != -1 {
+			// Remove the captured piece from the board.
+			bitboards[capturedPieceType] ^= to
+		}
+
+		// Remove a promoted pawn from the board.
+		bitboards[movedPiece] ^= from
+		// Place a new piece.
+		if movedPiece == enum.PieceWPawn {
+			bitboards[move.PromotionPiece()+1] ^= to
+		} else {
+			bitboards[move.PromotionPiece()+7] ^= to
+		}
+		return
+	}
+
+	// Move piece from the source square to the destination square.
+	bitboards[movedPiece] ^= fromTo
+}
+
+// IsSquareUnderAttack returns true if the specified square is attacked
+// by pieces of the specified color in the given position.
+func IsSquareUnderAttack(bitboards [12]uint64, occupancy uint64,
+	square int, color enum.Color) bool {
+	offset := 6 * color
+	// If attacked by pawns.
+	if (pawnAttacks[color^1][square]&bitboards[offset+enum.PieceWPawn] != 0) ||
+		// If attacked by knights.
+		(knightAttacks[square]&bitboards[offset+enum.PieceWKing] != 0) ||
+		// If attacked by bishops.
+		(lookupBishopAttacks(square, occupancy)&bitboards[offset+enum.PieceWBishop] != 0) ||
+		// If attacked by rooks.
+		(lookupRookAttacks(square, occupancy)&bitboards[offset+enum.PieceWRook] != 0) ||
+		// If attacked by queens.
+		(lookupQueenAttacks(square, occupancy)&bitboards[offset+enum.PieceWQueen] != 0) ||
+		// If attacked by king.
+		(kingAttacks[square]&bitboards[offset+enum.PieceWKing] != 0) {
+		// Square is under attack.
+		return true
+	}
+
+	// Square is not under attack.
+	return false
+}
+
+// BitScan returns the index of the Least Significant Bit (LSB) withing a bitboard.
+// bitboard&-bitboard gives the LSB which is then run through the hashing scheme to index a lookup.
+func BitScan(bitboard uint64) int { return bitScanLookup[bitboard&-bitboard*BITSCAN_MAGIC>>58] }
+
+// PopLSB pops the Least Significant Bit from a bitboard and returns its index.
+func PopLSB(bitboard *uint64) int {
+	lsb := BitScan(*bitboard)
+	*bitboard &= *bitboard - 1
+	return lsb
+}
+
+// CountBits returns the number of bits set within a bitboard.
+func CountBits(bitboard uint64) int {
+	var cnt int
+	for bitboard > 0 {
+		cnt++
+		bitboard &= bitboard - 1
+	}
+	return cnt
+}
+
+// pseudoRandUint64FewBits returns a pseudo-random uint64 with a few set bits.
+// It is used only for a magic number generation.
+func pseudoRandUint64FewBits() uint64 { return rand.Uint64() & rand.Uint64() & rand.Uint64() }
 
 // genPawnAttacks returns a bitboard of squares attacked by a pawn.
 func genPawnAttacks(pawn uint64, color enum.Color) uint64 {
@@ -546,30 +702,6 @@ func lookupQueenAttacks(square int, occupancy uint64) uint64 {
 	return lookupBishopAttacks(square, occupancy) | lookupRookAttacks(square, occupancy)
 }
 
-// IsSquareUnderAttack returns true if the given square is attacked in the given position by the specified color.
-func IsSquareUnderAttack(bitboards [12]uint64, occupancy uint64,
-	square int, color enum.Color) bool {
-	offset := 6 * color
-	// If attacked by pawns.
-	if (pawnAttacks[color^1][square]&bitboards[offset+enum.PieceWPawn] != 0) ||
-		// If attacked by knights.
-		(knightAttacks[square]&bitboards[offset+enum.PieceWKing] != 0) ||
-		// If attacked by bishops.
-		(lookupBishopAttacks(square, occupancy)&bitboards[offset+enum.PieceWBishop] != 0) ||
-		// If attacked by rooks.
-		(lookupRookAttacks(square, occupancy)&bitboards[offset+enum.PieceWRook] != 0) ||
-		// If attacked by queens.
-		(lookupQueenAttacks(square, occupancy)&bitboards[offset+enum.PieceWQueen] != 0) ||
-		// If attacked by king.
-		(kingAttacks[square]&bitboards[offset+enum.PieceWKing] != 0) {
-		// Square is under attack.
-		return true
-	}
-
-	// Square is not under attack.
-	return false
-}
-
 // genPawnsPseudoLegalMoves appends pseudo-legal moves (quiet moves and captures) for the pawns on
 // the given bitboard to the specified move list.
 func genPawnsPseudoLegalMoves(bitboard, allies, enemies, enPassantTarget uint64,
@@ -683,26 +815,26 @@ func genKingPseudoLegalMoves(square int, allies, enemies, attacked uint64,
 	// Handle castling.
 	if color == enum.ColorWhite {
 		// White O-O.
-		if castlingRights&enum.CastlingWhiteKing != 0 &&
+		if castlingRights&enum.CastlingWhiteShort != 0 &&
 			occupancy&WHITE_KING_CASTLING_PATH == 0 &&
 			attacked&WHITE_KING_CASTLING_PATH == 0 {
 			moveList.Push(NewMove(enum.SG1, square, 0, enum.MoveCastling))
 		}
 		// White O-O-O.
-		if castlingRights&enum.CastlingWhiteQueen != 0 &&
+		if castlingRights&enum.CastlingWhiteLong != 0 &&
 			occupancy&WHITE_QUEEN_CASTLING_PATH == 0 &&
 			attacked&WHITE_QUEEN_CASTLING_PATH == 0 {
 			moveList.Push(NewMove(enum.SC1, square, 0, enum.MoveCastling))
 		}
 	} else {
 		// Black O-O.
-		if castlingRights&enum.CastlingBlackKing != 0 &&
+		if castlingRights&enum.CastlingBlackShort != 0 &&
 			occupancy&BLACK_KING_CASTLING_PATH == 0 &&
 			attacked&BLACK_KING_CASTLING_PATH == 0 {
 			moveList.Push(NewMove(enum.SG8, square, 0, enum.MoveCastling))
 		}
 		// Black O-O-O.
-		if castlingRights&enum.CastlingBlackQueen != 0 &&
+		if castlingRights&enum.CastlingBlackLong != 0 &&
 			occupancy&BLACK_QUEEN_CASTLING_PATH == 0 &&
 			attacked&BLACK_QUEEN_CASTLING_PATH == 0 {
 			moveList.Push(NewMove(enum.SC8, square, 0, enum.MoveCastling))
@@ -710,8 +842,8 @@ func genKingPseudoLegalMoves(square int, allies, enemies, attacked uint64,
 	}
 }
 
-// GenPseudoLegalMoves generates pseudo-legal moves for the pieces of the specified active color.
-func GenPseudoLegalMoves(bitboards [12]uint64, color enum.Color, moveList *MoveList,
+// genPseudoLegalMoves generates pseudo-legal moves for the pieces of the specified active color.
+func genPseudoLegalMoves(bitboards [12]uint64, color enum.Color, moveList *MoveList,
 	castlingRights enum.CastlingFlag, enPassantTarget uint64) {
 	var allies, enemies uint64
 	colorOffset, enemyColorOffset := 6*color, (1^color)*6
@@ -728,114 +860,47 @@ func GenPseudoLegalMoves(bitboards [12]uint64, color enum.Color, moveList *MoveL
 		genNormalPseudoLegalMoves(i, bitboards[i], allies, enemies, moveList)
 	}
 
-	var kingBB, attacked uint64 = bitboards[enum.PieceWKing+colorOffset], 0
-	for square := 0; square < 64; square++ {
-		if IsSquareUnderAttack(bitboards, allies|enemies, square, 1^color) {
-			attacked |= 1 << square
-		}
-	}
+	attacked := genAttackedSquares(bitboards, allies|enemies, 1^color)
+	kingBB := bitboards[enum.PieceWKing+colorOffset]
 
 	genKingPseudoLegalMoves(BitScan(kingBB), allies^kingBB, enemies, attacked,
 		castlingRights, moveList, color)
 }
 
-// getPieceTypeFromSquare returns the type of the piece that stands on the specified square.
+// genAttackedSquares returns a bitboard of squares attacked by a pieces of the specified color.
+func genAttackedSquares(bitboards [12]uint64, occupancy uint64, color enum.Color) uint64 {
+	var attacked uint64
+	colorOffset := (color * 6)
+
+	attacked |= genPawnAttacks(bitboards[enum.PieceWPawn+colorOffset], color)
+	attacked |= genKnightAttacks(bitboards[enum.PieceWKnight+colorOffset])
+	attacked |= genKingAttacks(bitboards[enum.PieceWKing+colorOffset])
+
+	for i := enum.PieceWBishop + colorOffset; i <= enum.PieceWKing+colorOffset; i++ {
+		for bitboards[i] > 0 {
+			square := PopLSB(&bitboards[i])
+
+			switch i {
+			case enum.PieceWBishop, enum.PieceBBishop:
+				attacked |= lookupBishopAttacks(square, occupancy)
+			case enum.PieceWRook, enum.PieceBRook:
+				attacked |= lookupRookAttacks(square, occupancy)
+			case enum.PieceWQueen, enum.PieceBQueen:
+				attacked |= lookupQueenAttacks(square, occupancy)
+			}
+		}
+	}
+
+	return attacked
+}
+
+// GetPieceTypeFromSquare returns the type of the piece that stands on the specified square.
 // Returns -1 if there is no piece on the square.
-func getPieceTypeFromSquare(bitboards [12]uint64, square uint64) enum.Piece {
+func GetPieceTypeFromSquare(bitboards [12]uint64, square uint64) enum.Piece {
 	for pieceType, bitboard := range bitboards {
 		if square&bitboard != 0 {
 			return pieceType
 		}
 	}
 	return -1
-}
-
-// MakeMove modifies the piece placement in the given bitboard array by performing the specified move.
-func MakeMove(bitboards *[12]uint64, move Move) {
-	var from, to uint64 = 1 << move.From(), 1 << move.To()
-	fromTo := from ^ to
-	movedPieceType := getPieceTypeFromSquare(*bitboards, from)
-
-	switch move.Type() {
-	case enum.MoveNormal:
-		// If the move is capture.
-		capturedPieceType := getPieceTypeFromSquare(*bitboards, to)
-		if capturedPieceType != -1 {
-			// Remove the captured piece from the board.
-			bitboards[capturedPieceType] ^= to
-		}
-
-	case enum.MoveEnPassant:
-		// Remove the captured pawn from the board.
-		if movedPieceType == enum.PieceWPawn {
-			bitboards[enum.PieceBPawn] ^= to >> 8
-		} else {
-			bitboards[enum.PieceWPawn] ^= to << 8
-		}
-
-	case enum.MoveCastling:
-		if to == enum.G1 || to == enum.G8 {
-			// O-O.
-			bitboards[movedPieceType-2] ^= (to << 1) ^ (to >> 1)
-		} else if to == enum.C1 || to == enum.C8 {
-			// O-O-O.
-			bitboards[movedPieceType-2] ^= (to >> 2) ^ (to << 1)
-		}
-
-	case enum.MovePromotion:
-		// If the move is capture-promotion.
-		capturedPieceType := getPieceTypeFromSquare(*bitboards, to)
-		if capturedPieceType != -1 {
-			// Remove the captured piece from the board.
-			bitboards[capturedPieceType] ^= to
-		}
-
-		// Remove a promoted pawn from the board.
-		bitboards[movedPieceType] ^= from
-		// Place a new piece.
-		if movedPieceType == enum.PieceWPawn {
-			bitboards[move.PromotionPiece()+1] ^= to
-		} else {
-			bitboards[move.PromotionPiece()+7] ^= to
-		}
-		return
-	}
-
-	// Move piece from the source square to the destination square.
-	bitboards[movedPieceType] ^= fromTo
-}
-
-// InitAttackTables initializes the predefined attack tables.
-func InitAttackTables() {
-	initBishopRelevantOccupancy()
-	initRookRelevantOccupancy()
-
-	for square := 0; square < 64; square++ {
-		var squareBB uint64 = 1 << square
-
-		pawnAttacks[enum.ColorWhite][square] = genPawnAttacks(squareBB, enum.ColorWhite)
-		pawnAttacks[enum.ColorBlack][square] = genPawnAttacks(squareBB, enum.ColorBlack)
-
-		knightAttacks[square] = genKnightAttacks(squareBB)
-
-		kingAttacks[square] = genKingAttacks(squareBB)
-
-		bitCount := bishopRelevantOccupancyBitCount[square]
-		for i := 0; i < 1<<bitCount; i++ {
-			occupancy := genOccupancy(i, bitCount, bishopRelevantOccupancy[square])
-
-			magicKey := occupancy * bishopMagicNumberLookup[square] >> (64 - bitCount)
-
-			bishopAttacks[square][magicKey] = genBishopAttacks(squareBB, occupancy)
-		}
-
-		bitCount = rookRelevantOccupancyBitCount[square]
-		for i := 0; i < 1<<bitCount; i++ {
-			occupancy := genOccupancy(i, bitCount, rookRelevantOccupancy[square])
-
-			magicKey := occupancy * rookMagicNumberLookup[square] >> (64 - bitCount)
-
-			rookAttacks[square][magicKey] = genRookAttacks(squareBB, occupancy)
-		}
-	}
 }

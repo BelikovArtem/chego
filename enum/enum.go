@@ -1,5 +1,5 @@
 // Package enum contains custom type declarations and predefined constants.
-// Used to avoid the "magic numbers" antipattern.
+// Used to avoid the "magic numbers" antipattern and simplify testing.
 package enum
 
 // Piece is allias type to avoid bothersome conversion between int and Piece.
@@ -62,17 +62,15 @@ const (
 type CastlingFlag int
 
 const (
-	CastlingWhiteKing  CastlingFlag = 1
-	CastlingWhiteQueen CastlingFlag = 2
-	CastlingBlackKing  CastlingFlag = 4
-	CastlingBlackQueen CastlingFlag = 8
+	CastlingWhiteShort CastlingFlag = 1
+	CastlingWhiteLong  CastlingFlag = 2
+	CastlingBlackShort CastlingFlag = 4
+	CastlingBlackLong  CastlingFlag = 8
 )
 
 // Bitboards of each square. Used to simplify tests.
 const (
-	// To distinguish the absence of the en passant target.
-	NoSquare        = -1
-	A1       uint64 = 1 << (iota - 1)
+	A1 uint64 = 1 << iota
 	B1
 	C1
 	D1
