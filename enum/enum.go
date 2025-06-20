@@ -23,7 +23,7 @@ const (
 // PromotionFlag is allias type to avoid bothersome conversion between int and Color.
 type PromotionFlag = int
 
-// 00 - knight, 01 - bishop, 10 - rook, 11 - queen
+// 00 - knight, 01 - bishop, 10 - rook, 11 - queen.
 const (
 	PromotionKnight PromotionFlag = iota
 	PromotionBishop
@@ -66,6 +66,20 @@ const (
 	CastlingWhiteLong  CastlingFlag = 2
 	CastlingBlackShort CastlingFlag = 4
 	CastlingBlackLong  CastlingFlag = 8
+)
+
+// Result represents the possible outcomes of a chess game.
+type Result int
+
+const (
+	ResultCheckmate Result = iota
+	ResultTimeout
+	ResultStalemate
+	ResultInsufficientMaterial
+	ResultFiftyMove
+	ResultThreefoldRepetition
+	ResultResignation
+	ResultDrawByAgreement
 )
 
 // Bitboards of each square. Used to simplify tests.

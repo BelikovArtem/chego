@@ -256,6 +256,7 @@ var (
 
 // InitAttackTables initializes the predefined attack tables.
 // Call this function ONCE as close as possible to the start of your program.
+//
 // NOTE: Move generation will not work if the attack tables are not initialized.
 func InitAttackTables() {
 	initBishopRelevantOccupancy()
@@ -798,6 +799,7 @@ func genNormalPseudoLegalMoves(pieceType enum.Piece, bitboard, allies,
 
 // genKingPseudoLegalMoves appends pseudo-legal moves (quiet moves and captures) for the king on
 // the given bitboard to the specified move list.
+//
 // NOTE: the allies bitboard must exclude the allied king!
 func genKingPseudoLegalMoves(square int, allies, enemies, attacked uint64,
 	castlingRights enum.CastlingFlag, moveList *MoveList, color enum.Color) {

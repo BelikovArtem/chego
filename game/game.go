@@ -8,23 +8,24 @@ import (
 	"chego/movegen"
 )
 
-type CompletedMove struct {
-	// Game state after completing the move to enable move undo and state restoration.
-	FenString string
-	// Move itself.
-	Move movegen.Move
-}
-
 // Game represents a single chess game state.
 type Game struct {
 	LegalMoves      movegen.MoveList
 	Bitboards       [12]uint64
 	MoveStack       []CompletedMove
+	Repetitions     map[string]int
 	EnPassantTarget int
 	CastlingRights  enum.CastlingFlag
 	ActiveColor     enum.Color
 	HalfmoveCnt     int
 	FullmoveCnt     int
+}
+
+type CompletedMove struct {
+	// Game state after completing the move to enable move undo and state restoration.
+	FenString string
+	// Move itself.
+	Move movegen.Move
 }
 
 // NewGame creates a new game initialized from the default chess position.
@@ -33,6 +34,7 @@ func NewGame() *Game {
 	g := &Game{
 		Bitboards:       fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"),
 		MoveStack:       make([]CompletedMove, 0),
+		Repetitions:     make(map[string]int),
 		EnPassantTarget: 0,
 		CastlingRights:  0xF,
 		ActiveColor:     enum.ColorWhite,
@@ -44,7 +46,7 @@ func NewGame() *Game {
 	return g
 }
 
-// SetState sets the game state and generates the legal moves the updated position.
+// SetState sets the game state and generates legal moves.
 func (g *Game) SetState(bitboards [12]uint64, enPassantTarget int, castlingRights enum.CastlingFlag,
 	activeColor enum.Color, halfmoveCnt, fullmoveCnt int) {
 	g.Bitboards = bitboards
@@ -145,8 +147,30 @@ func (g *Game) PopMove() {
 	}
 }
 
+// IsThreefoldRepetition checks whether the last completed move has resulted in a threefold repetition.
+//
+// A position is considered identical if all of the following conditions are met:
+//  1. Active colors are the same.
+//  2. Pieces occupy the same squares.
+//  3. Legal moves are the same.
+//  4. Castling rights are identical.
+//
+// NOTE: Positions are identical even if the en passant target square differs,
+// provided that no en passant capture is possible.
+func (g *Game) IsThreefoldRepetition() bool {
+	currentPosKey := position{
+		g.LegalMoves,
+		g.Bitboards,
+		g.ActiveColor,
+		g.CastlingRights,
+	}.repetitionKey()
+	// Increment the repetition count.
+	g.Repetitions[currentPosKey]++
+	return g.Repetitions[currentPosKey] == 3
+}
+
+// IsMoveLegal checks if the specified move is legal.
 func (g *Game) IsMoveLegal(move movegen.Move) bool {
-	// Check if the move is legal.
 	for _, legalMove := range g.LegalMoves.Moves {
 		if legalMove.From() == move.From() && legalMove.To() == move.To() &&
 			legalMove.Type() == move.Type() {

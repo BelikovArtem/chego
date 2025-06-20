@@ -214,6 +214,112 @@ func TestPopMove(t *testing.T) {
 	}
 }
 
+func TestIsThreefoldRepetition(t *testing.T) {
+	testcases := []struct {
+		moveStack []movegen.Move
+		expected  bool
+	}{
+		{[]movegen.Move{
+			movegen.NewMove(enum.SH3, enum.SH2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH6, enum.SH7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
+		}, true},
+		{[]movegen.Move{
+			movegen.NewMove(enum.SH3, enum.SH2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH6, enum.SH7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD3, enum.SD2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD7, enum.SD8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD2, enum.SD1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD8, enum.SD7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD1, enum.SD2, 0, enum.MoveNormal),
+		}, false},
+		{[]movegen.Move{
+			movegen.NewMove(enum.SE4, enum.SE2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SE5, enum.SE7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SF3, enum.SG1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SC6, enum.SB8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SG1, enum.SF3, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SB8, enum.SC6, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SF3, enum.SG1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SC6, enum.SB8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SG1, enum.SF3, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SB8, enum.SC6, 0, enum.MoveNormal),
+		}, true},
+		{[]movegen.Move{
+			movegen.NewMove(enum.SD4, enum.SD2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD5, enum.SD4, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA6, enum.SA7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA3, enum.SA2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SC5, enum.SC7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA1, enum.SA2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA8, enum.SA7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA1, enum.SA2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA8, enum.SA7, 0, enum.MoveNormal),
+		}, false},
+		{[]movegen.Move{
+			movegen.NewMove(enum.SD4, enum.SD2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SD5, enum.SD4, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA6, enum.SA7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA3, enum.SA2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SC5, enum.SC7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA1, enum.SA2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA8, enum.SA7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA1, enum.SA2, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA8, enum.SA7, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
+			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
+		}, true},
+	}
+
+	for _, tc := range testcases {
+		game := NewGame()
+
+		for i, move := range tc.moveStack {
+			game.PushMove(move)
+			game.LegalMoves = movegen.GenLegalMoves(game.Bitboards, game.ActiveColor, game.CastlingRights,
+				game.EnPassantTarget)
+			if i < len(tc.moveStack)-1 {
+				positionKey := position{game.LegalMoves, game.Bitboards, game.ActiveColor, game.CastlingRights}.repetitionKey()
+				game.Repetitions[positionKey]++
+			}
+		}
+
+		got := game.IsThreefoldRepetition()
+		if tc.expected != got {
+			t.Fatalf("expected %t, got %t", tc.expected, got)
+		}
+	}
+}
+
 func BenchmarkPushMove(b *testing.B) {
 	game := NewGame()
 	bitboards := fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
@@ -226,3 +332,40 @@ func BenchmarkPushMove(b *testing.B) {
 }
 
 // TODO: BenchmarkPopMove
+
+func BenchmarkIsThreefoldRepetition(b *testing.B) {
+	game := NewGame()
+	moveStack := []movegen.Move{
+		movegen.NewMove(enum.SH3, enum.SH2, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH6, enum.SH7, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SD3, enum.SD2, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SD7, enum.SD8, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SD2, enum.SD1, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SD8, enum.SD7, 0, enum.MoveNormal),
+		movegen.NewMove(enum.SD1, enum.SD2, 0, enum.MoveNormal),
+	}
+
+	for i, move := range moveStack {
+		game.PushMove(move)
+		game.LegalMoves = movegen.GenLegalMoves(game.Bitboards, game.ActiveColor, game.CastlingRights,
+			game.EnPassantTarget)
+		if i < len(moveStack)-1 {
+			positionKey := position{game.LegalMoves, game.Bitboards, game.ActiveColor, game.CastlingRights}.repetitionKey()
+			game.Repetitions[positionKey]++
+		}
+	}
+
+	for b.Loop() {
+		game.IsThreefoldRepetition()
+	}
+}
