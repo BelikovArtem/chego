@@ -15,7 +15,8 @@ type position struct {
 	castlingRights enum.CastlingFlag
 }
 
-// repetitionKey is used to compare positions and use them as map keys.
+// repetitionKey converts the position into a string.
+// Used to be able to use positions as map keys and compare them.
 func (p position) repetitionKey() string {
 	var keyBuilder strings.Builder
 	keyBuilder.Grow(50)

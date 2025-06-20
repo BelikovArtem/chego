@@ -320,6 +320,32 @@ func TestIsThreefoldRepetition(t *testing.T) {
 	}
 }
 
+func TestIsInsufficientMaterial(t *testing.T) {
+	testcases := []struct {
+		fenString string
+		expected  bool
+	}{
+		{"3k1n2/8/8/8/8/5B2/4K3/8", false},
+		{"3k4/8/8/8/8/8/4K3/8", true},
+		{"3k4/8/8/8/8/5P2/4K3/8", false},
+		{"3k4/2b5/8/8/8/8/4K3/8", true},
+		{"3k4/8/8/8/8/8/3NK3/8", true},
+		{"3k4/2b5/8/8/8/4B3/4K3/8", true},
+		{"3k4/2b5/8/8/8/3B4/4K3/8", false},
+		{"8/8/8/8/8/8/1n6/KN6", true},
+	}
+
+	game := NewGame()
+	for _, tc := range testcases {
+		game.Bitboards = fen.ToBitboardArray(tc.fenString)
+
+		got := game.IsInsufficientMaterial()
+		if got != tc.expected {
+			t.Fatalf("expected: %t, got: %t", tc.expected, got)
+		}
+	}
+}
+
 func BenchmarkPushMove(b *testing.B) {
 	game := NewGame()
 	bitboards := fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
@@ -367,5 +393,13 @@ func BenchmarkIsThreefoldRepetition(b *testing.B) {
 
 	for b.Loop() {
 		game.IsThreefoldRepetition()
+	}
+}
+
+func BenchmarkIsInsufficientMaterial(b *testing.B) {
+	game := NewGame()
+
+	for b.Loop() {
+		game.IsInsufficientMaterial()
 	}
 }

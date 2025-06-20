@@ -1,6 +1,7 @@
 package movegen
 
 import (
+	"chego/bitutil"
 	"chego/enum"
 	"chego/fen"
 	"chego/format"
@@ -149,7 +150,7 @@ func TestBitScan(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		got := BitScan(tc.bitboard)
+		got := bitutil.BitScan(tc.bitboard)
 		if got != tc.expected {
 			t.Fatalf("Testcase %s failed: expected %d, got %d", tc.name, tc.expected, got)
 		}
@@ -171,7 +172,7 @@ func TestGenMagicNumber(t *testing.T) {
 func TestLookupBishopAttacks(t *testing.T) {
 	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
 	for square := uint64(1); square != 0; square <<= 1 {
-		got := lookupBishopAttacks(BitScan(square), occupancy)
+		got := lookupBishopAttacks(bitutil.BitScan(square), occupancy)
 		expected := genBishopAttacks(square, occupancy)
 
 		if got != expected {
@@ -185,7 +186,7 @@ func TestLookupBishopAttacks(t *testing.T) {
 func TestLookupRookAttacks(t *testing.T) {
 	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
 	for square := uint64(1); square != 0; square <<= 1 {
-		got := lookupRookAttacks(BitScan(square), occupancy)
+		got := lookupRookAttacks(bitutil.BitScan(square), occupancy)
 		expected := genRookAttacks(square, occupancy)
 
 		if got != expected {
@@ -199,7 +200,7 @@ func TestLookupRookAttacks(t *testing.T) {
 func TestLookupQueenAttacks(t *testing.T) {
 	var occupancy uint64 = enum.F2 | enum.B3 | enum.F4 | enum.D5 | enum.G7
 	for square := uint64(1); square != 0; square <<= 1 {
-		got := lookupQueenAttacks(BitScan(square), occupancy)
+		got := lookupQueenAttacks(bitutil.BitScan(square), occupancy)
 		expected := genBishopAttacks(square, occupancy) |
 			genRookAttacks(square, occupancy)
 

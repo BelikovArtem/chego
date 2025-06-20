@@ -3,6 +3,7 @@
 package game
 
 import (
+	"chego/bitutil"
 	"chego/enum"
 	"chego/fen"
 	"chego/movegen"
@@ -21,6 +22,7 @@ type Game struct {
 	FullmoveCnt     int
 }
 
+// CompletedMove represents a completed move.
 type CompletedMove struct {
 	// Game state after completing the move to enable move undo and state restoration.
 	FenString string
@@ -169,6 +171,41 @@ func (g *Game) IsThreefoldRepetition() bool {
 	return g.Repetitions[currentPosKey] == 3
 }
 
+// IsInsufficientMaterial returns true if one of the following statements is true:
+//
+//  1. Both sides have a bare king.
+//  2. One side has a king and a minor piece against a bare king.
+//  3. Both sides have a king and a bishop, the bishops standing on the same color.
+//  4. Both sides have a king and a knight.
+func (g *Game) IsInsufficientMaterial() bool {
+	// Bitmask for all dark squares.
+	var dark uint64 = 0xAA55AA55AA55AA55
+	material := g.calculateMaterial()
+
+	if material == 0 {
+		return true
+	}
+
+	if material == 3 && g.Bitboards[enum.PieceWPawn] == 0 &&
+		g.Bitboards[enum.PieceBPawn] == 0 {
+		return true
+	}
+
+	if material == 6 {
+		whiteBishop := g.Bitboards[enum.PieceWBishop]
+		blackBishop := g.Bitboards[enum.PieceBBishop]
+
+		if whiteBishop != 0 && blackBishop != 0 && ((whiteBishop&dark > 0 &&
+			blackBishop&dark > 0) || (whiteBishop&dark == 0 && blackBishop&dark == 0)) {
+			return true
+		} else if g.Bitboards[enum.PieceWKnight] != 0 && g.Bitboards[enum.PieceBKnight] != 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 // IsMoveLegal checks if the specified move is legal.
 func (g *Game) IsMoveLegal(move movegen.Move) bool {
 	for _, legalMove := range g.LegalMoves.Moves {
@@ -178,4 +215,31 @@ func (g *Game) IsMoveLegal(move movegen.Move) bool {
 		}
 	}
 	return false
+}
+
+// calculateMaterial calculates the piece valies of each side.
+// Is used to determine a draw by insufficient material.
+func (g *Game) calculateMaterial() int {
+	var material int
+
+	for pieceType := enum.PieceWPawn; pieceType < enum.PieceBKing; pieceType++ {
+		if pieceType == enum.PieceWKing {
+			continue
+		}
+
+		coefficient := 1
+		switch pieceType {
+		case enum.PieceWKnight, enum.PieceBKnight,
+			enum.PieceWBishop, enum.PieceBBishop:
+			coefficient = 3
+		case enum.PieceWRook, enum.PieceBRook:
+			coefficient = 5
+		case enum.PieceWQueen, enum.PieceBQueen:
+			coefficient = 9
+		}
+
+		material += bitutil.CountBits(g.Bitboards[pieceType]) * coefficient
+	}
+
+	return material
 }
