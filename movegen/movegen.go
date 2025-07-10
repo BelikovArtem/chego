@@ -342,11 +342,10 @@ func MakeMove(bitboards *[12]uint64, move Move) {
 		}
 
 	case enum.MoveCastling:
-		if to == enum.G1 || to == enum.G8 {
-			// O-O.
+		switch to {
+		case enum.G1, enum.G8: // O-O
 			bitboards[movedPiece-2] ^= (to << 1) ^ (to >> 1)
-		} else if to == enum.C1 || to == enum.C8 {
-			// O-O-O.
+		case enum.C1, enum.C8: // O-O-O
 			bitboards[movedPiece-2] ^= (to >> 2) ^ (to << 1)
 		}
 

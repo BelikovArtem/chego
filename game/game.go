@@ -30,7 +30,7 @@ type CompletedMove struct {
 	Move movegen.Move
 }
 
-// NewGame creates a new game initialized from the default chess position.
+// NewGame creates a new game initialized with the default chess position.
 // Generates legal moves.
 func NewGame() *Game {
 	g := &Game{
@@ -63,7 +63,7 @@ func (g *Game) SetState(bitboards [12]uint64, enPassantTarget int, castlingRight
 
 // PushMove updates the game state by performing the specified move.
 // It is a caller responsibility to check if the specified move is legal.
-// Does not generate new legal moves.
+// Generates legal moves for the next turn.
 func (g *Game) PushMove(move movegen.Move) {
 	movedPiece := movegen.GetPieceTypeFromSquare(g.Bitboards, 1<<move.From())
 	isCapture := movegen.GetPieceTypeFromSquare(g.Bitboards, 1<<move.To()) != -1
@@ -123,6 +123,10 @@ func (g *Game) PushMove(move movegen.Move) {
 		FenString: fen.Serialize(g.Bitboards, g.ActiveColor, g.CastlingRights,
 			g.EnPassantTarget, g.HalfmoveCnt, g.FullmoveCnt),
 	})
+
+	// Generate legal moves for the next turn.
+	movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights,
+		g.EnPassantTarget)
 }
 
 // PopMove pops the last completed move and restores the game state.
@@ -204,6 +208,29 @@ func (g *Game) IsInsufficientMaterial() bool {
 	}
 
 	return false
+}
+
+// IsCheckmate returns true if one of the following statements is true:
+//
+//  1. There are no legal moves available for the current turn.
+//  2. The king of the side to move is in check.
+//
+// NOTE: If there are no legal moves, but the king is not in check, the position
+// is a stalemate.
+func (g *Game) IsCheckmate() bool {
+	// Check whether the king in check.
+	var occupancy uint64
+	for i := enum.PieceWPawn; i <= enum.PieceBKing; i++ {
+		occupancy |= g.Bitboards[i]
+	}
+	kingBB := g.Bitboards[enum.PieceWKing]
+	if g.ActiveColor == enum.ColorBlack {
+		kingBB = g.Bitboards[enum.PieceBKing]
+	}
+
+	isKingInCheck := movegen.IsSquareUnderAttack(g.Bitboards, occupancy, bitutil.BitScan(kingBB),
+		1^g.ActiveColor)
+	return isKingInCheck && g.LegalMoves.LastMoveIndex == 0
 }
 
 // IsMoveLegal checks if the specified move is legal.

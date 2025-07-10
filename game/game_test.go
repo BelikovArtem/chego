@@ -346,6 +346,32 @@ func TestIsInsufficientMaterial(t *testing.T) {
 	}
 }
 
+func TestIsCheckmate(t *testing.T) {
+	testcases := []struct {
+		fenString string
+		expected  bool
+	}{
+		{"rnb1kbnr/pppp1ppp/4p3/8/6Pq/3P1P2/PPP1P2P/RNBQKBNR w KQkq - 0 1", false},
+		{"rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 0 1", true},
+		{"rnb1kbnr/pppp1ppp/4p3/8/6Pq/3P1P2/PPP1PN1P/R1BQKBNR w KQkq - 0 1", false},
+	}
+
+	game := NewGame()
+	for _, tc := range testcases {
+		bb, ac, cr, ep, _, _ := fen.Parse(tc.fenString)
+		game.Bitboards = bb
+		game.ActiveColor = ac
+		game.CastlingRights = cr
+		game.EnPassantTarget = ep
+		game.LegalMoves = movegen.GenLegalMoves(bb, ac, cr, ep)
+
+		got := game.IsCheckmate()
+		if got != tc.expected {
+			t.Fatalf("expected: %t, got: %t", tc.expected, got)
+		}
+	}
+}
+
 func BenchmarkPushMove(b *testing.B) {
 	game := NewGame()
 	bitboards := fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
@@ -401,5 +427,13 @@ func BenchmarkIsInsufficientMaterial(b *testing.B) {
 
 	for b.Loop() {
 		game.IsInsufficientMaterial()
+	}
+}
+
+func BenchmarkIsCheckmate(b *testing.B) {
+	game := NewGame()
+
+	for b.Loop() {
+		game.IsCheckmate()
 	}
 }
