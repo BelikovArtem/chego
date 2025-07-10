@@ -3,8 +3,9 @@
 package format
 
 import (
-	"chego/enum"
 	"strings"
+
+	"github.com/BelikovArtem/chego/enum"
 )
 
 // pieceSymbols is an array of chess piece runes.

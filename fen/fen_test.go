@@ -1,8 +1,9 @@
 package fen
 
 import (
-	"chego/enum"
 	"testing"
+
+	"github.com/BelikovArtem/chego/enum"
 )
 
 func TestToBitboardArray(t *testing.T) {

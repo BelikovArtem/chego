@@ -3,10 +3,10 @@
 package game
 
 import (
-	"chego/bitutil"
-	"chego/enum"
-	"chego/fen"
-	"chego/movegen"
+	"github.com/BelikovArtem/chego/bitutil"
+	"github.com/BelikovArtem/chego/enum"
+	"github.com/BelikovArtem/chego/fen"
+	"github.com/BelikovArtem/chego/movegen"
 )
 
 // Game represents a single chess game state.

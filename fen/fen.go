@@ -3,8 +3,9 @@
 package fen
 
 import (
-	"chego/enum"
 	"strconv"
+
+	"github.com/BelikovArtem/chego/enum"
 
 	// bits is used to speed up the iteration over bitboards.
 	"math/bits"

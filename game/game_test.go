@@ -1,11 +1,12 @@
 package game
 
 import (
-	"chego/enum"
-	"chego/fen"
-	"chego/movegen"
 	"os"
 	"testing"
+
+	"github.com/BelikovArtem/chego/enum"
+	"github.com/BelikovArtem/chego/fen"
+	"github.com/BelikovArtem/chego/movegen"
 )
 
 func TestMain(m *testing.M) {

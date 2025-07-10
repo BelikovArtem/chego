@@ -2,9 +2,10 @@
 package movegen
 
 import (
-	"chego/bitutil"
-	"chego/enum"
 	"math/rand/v2"
+
+	"github.com/BelikovArtem/chego/bitutil"
+	"github.com/BelikovArtem/chego/enum"
 )
 
 // Move represents a chess move, encoded as a 16 bit unsigned integer:

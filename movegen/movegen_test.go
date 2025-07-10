@@ -1,12 +1,13 @@
 package movegen
 
 import (
-	"chego/bitutil"
-	"chego/enum"
-	"chego/fen"
-	"chego/format"
 	"os"
 	"testing"
+
+	"github.com/BelikovArtem/chego/bitutil"
+	"github.com/BelikovArtem/chego/enum"
+	"github.com/BelikovArtem/chego/fen"
+	"github.com/BelikovArtem/chego/format"
 )
 
 // Used to avoid writing InitAttackTables() each time.

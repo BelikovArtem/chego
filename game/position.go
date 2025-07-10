@@ -1,10 +1,11 @@
 package game
 
 import (
-	"chego/enum"
-	"chego/fen"
-	"chego/movegen"
 	"strings"
+
+	"github.com/BelikovArtem/chego/enum"
+	"github.com/BelikovArtem/chego/fen"
+	"github.com/BelikovArtem/chego/movegen"
 )
 
 // position is used to implement the threefold-repetition rule.
