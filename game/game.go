@@ -1,5 +1,6 @@
 // Package game impements chess game state management.
-// Make sure to call [movegen.InitAttackTables] function ONCE before using this package.
+// Make sure to call [movegen.InitAttackTables] ONCE
+// before using other functions from this package.
 package game
 
 import (
@@ -125,7 +126,7 @@ func (g *Game) PushMove(move movegen.Move) {
 	})
 
 	// Generate legal moves for the next turn.
-	movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights,
+	g.LegalMoves = movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights,
 		g.EnPassantTarget)
 }
 
@@ -233,15 +234,26 @@ func (g *Game) IsCheckmate() bool {
 	return isKingInCheck && g.LegalMoves.LastMoveIndex == 0
 }
 
-// IsMoveLegal checks if the specified move is legal.
-func (g *Game) IsMoveLegal(move movegen.Move) bool {
-	for _, legalMove := range g.LegalMoves.Moves {
-		if legalMove.From() == move.From() && legalMove.To() == move.To() &&
-			legalMove.Type() == move.Type() {
-			return true
+// GetLegalMoveIndex checks if the specified move is legal.
+// If it is, it returns the index of the legal move in the game.LegalMoves list.
+// If it isn't, it returns -1.
+//
+// NOTE: It also updates the promotion piece flag in the legal move,
+// so the player can promote to the desired piece.
+func (g *Game) GetLegalMoveIndex(to, from, promotionPiece int) int {
+	for i, legalMove := range g.LegalMoves.Moves {
+		if legalMove.From() == from && legalMove.To() == to {
+			if legalMove.Type() == enum.MovePromotion {
+				// Update promotion piece in case it is invalid.
+				if promotionPiece > enum.PromotionKnight && promotionPiece < enum.PromotionQueen {
+					promotionPiece = enum.PromotionQueen
+				}
+				g.LegalMoves.Moves[i] = movegen.NewMove(to, from, promotionPiece, enum.MovePromotion)
+			}
+			return i
 		}
 	}
-	return false
+	return -1
 }
 
 // calculateMaterial calculates the piece valies of each side.
