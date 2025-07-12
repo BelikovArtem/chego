@@ -45,7 +45,7 @@ func NewGame() *Game {
 		FullmoveCnt:     1,
 	}
 
-	movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget)
+	g.LegalMoves = movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget)
 	return g
 }
 
@@ -59,7 +59,7 @@ func (g *Game) SetState(bitboards [12]uint64, enPassantTarget int, castlingRight
 	g.HalfmoveCnt = halfmoveCnt
 	g.FullmoveCnt = fullmoveCnt
 
-	movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget)
+	g.LegalMoves = movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget)
 }
 
 // PushMove updates the game state by performing the specified move.
