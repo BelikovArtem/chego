@@ -245,7 +245,7 @@ func (g *Game) GetLegalMoveIndex(to, from, promotionPiece int) int {
 		if legalMove.From() == from && legalMove.To() == to {
 			if legalMove.Type() == enum.MovePromotion {
 				// Update promotion piece in case it is invalid.
-				if promotionPiece > enum.PromotionKnight && promotionPiece < enum.PromotionQueen {
+				if promotionPiece < enum.PromotionKnight && promotionPiece > enum.PromotionQueen {
 					promotionPiece = enum.PromotionQueen
 				}
 				g.LegalMoves.Moves[i] = movegen.NewMove(to, from, promotionPiece, enum.MovePromotion)
