@@ -379,9 +379,9 @@ func IsSquareUnderAttack(bitboards [12]uint64, occupancy uint64,
 	square int, color enum.Color) bool {
 	offset := 6 * color
 	// If attacked by pawns.
-	if (pawnAttacks[color^1][square]&bitboards[offset+enum.PieceWPawn] != 0) ||
+	return (pawnAttacks[color^1][square]&bitboards[offset+enum.PieceWPawn] != 0) ||
 		// If attacked by knights.
-		(knightAttacks[square]&bitboards[offset+enum.PieceWKing] != 0) ||
+		(knightAttacks[square]&bitboards[offset+enum.PieceWKnight] != 0) ||
 		// If attacked by bishops.
 		(lookupBishopAttacks(square, occupancy)&bitboards[offset+enum.PieceWBishop] != 0) ||
 		// If attacked by rooks.
@@ -389,13 +389,7 @@ func IsSquareUnderAttack(bitboards [12]uint64, occupancy uint64,
 		// If attacked by queens.
 		(lookupQueenAttacks(square, occupancy)&bitboards[offset+enum.PieceWQueen] != 0) ||
 		// If attacked by king.
-		(kingAttacks[square]&bitboards[offset+enum.PieceWKing] != 0) {
-		// Square is under attack.
-		return true
-	}
-
-	// Square is not under attack.
-	return false
+		(kingAttacks[square]&bitboards[offset+enum.PieceWKing] != 0)
 }
 
 // pseudoRandUint64FewBits returns a pseudo-random uint64 with a few set bits.

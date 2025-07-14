@@ -242,6 +242,13 @@ func TestIsSquareUnderAttack(t *testing.T) {
 			enum.ColorBlack,
 			true,
 		},
+		{
+			"square F7 is attacked by white knight",
+			"rnbq1bnr/2pppkpp/1p6/p3N3/4P3/8/PPPP1PPP/RNB1KB1R",
+			enum.SF7,
+			enum.ColorWhite,
+			true,
+		},
 	}
 
 	for _, tc := range testcases {
@@ -253,6 +260,7 @@ func TestIsSquareUnderAttack(t *testing.T) {
 
 		got := IsSquareUnderAttack(bitboards, occupancy, tc.square, tc.color)
 		if got != tc.expected {
+			t.Logf("\n%s\n", format.Position(bitboards, tc.color, 0x0, 0x0))
 			t.Fatalf("test \"%s\" failed: got %t, expected %t\n", tc.name, got, tc.expected)
 		}
 	}
@@ -706,6 +714,11 @@ func TestGenLegalMoves(t *testing.T) {
 					NewMove(enum.SG4, enum.SF3, 0, enum.MoveNormal),
 				}, 7,
 			},
+		},
+		{
+			"rnbqkbnr/2pp1Qpp/1p6/p3N3/4P3/8/PPPP1PPP/RNB1KB1R",
+			enum.ColorBlack, 0x0, 0x0,
+			MoveList{[218]Move{}, 0},
 		},
 	}
 
