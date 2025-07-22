@@ -2,7 +2,7 @@
 // Used to avoid the "magic numbers" antipattern and simplify testing.
 package enum
 
-// Piece is allias type to avoid bothersome conversion between int and Piece.
+// Piece is an allias type to avoid bothersome conversion between int and Piece.
 type Piece = int
 
 const (
@@ -20,7 +20,7 @@ const (
 	PieceBKing
 )
 
-// PromotionFlag is allias type to avoid bothersome conversion between int and Color.
+// PromotionFlag is an allias type to avoid bothersome conversion between int and Color.
 type PromotionFlag = int
 
 // 00 - knight, 01 - bishop, 10 - rook, 11 - queen.
@@ -31,7 +31,7 @@ const (
 	PromotionQueen
 )
 
-// Color is allias type to avoid bothersome conversion between int and Color.
+// Color is an allias type to avoid bothersome conversion between int and Color.
 type Color = int
 
 const (
@@ -39,13 +39,13 @@ const (
 	ColorBlack
 )
 
-// MoveType is allias type to avoid bothersome conversion between int and MoveType.
+// MoveType is an allias type to avoid bothersome conversion between int and MoveType.
 type MoveType = int
 
 const (
 	// Quite & capture moves.
 	MoveNormal MoveType = iota
-	// King & queen castle.
+	// King & queen castling.
 	MoveCastling
 	// Knight & Bishop & Rook & Queen promotions.
 	MovePromotion
@@ -72,7 +72,8 @@ const (
 type Result int
 
 const (
-	ResultCheckmate Result = iota
+	ResultUnscored Result = iota
+	ResultCheckmate
 	ResultTimeout
 	ResultStalemate
 	ResultInsufficientMaterial

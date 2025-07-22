@@ -1,6 +1,6 @@
 // Package game impements chess game state management.
-// Make sure to call [movegen.InitAttackTables] ONCE
-// before using other functions from this package.
+//
+// Make sure to call [movegen.InitAttackTables] ONCE before using this package.
 package game
 
 import (
@@ -240,15 +240,16 @@ func (g *Game) IsCheckmate() bool {
 //
 // NOTE: It also updates the promotion piece flag in the legal move,
 // so the player can promote to the desired piece.
-func (g *Game) GetLegalMoveIndex(to, from, promotionPiece int) int {
+func (g *Game) GetLegalMoveIndex(m movegen.Move) int {
 	for i, legalMove := range g.LegalMoves.Moves {
-		if legalMove.From() == from && legalMove.To() == to {
+		if legalMove.From() == m.From() && legalMove.To() == m.To() {
 			if legalMove.Type() == enum.MovePromotion {
+				promo := m.PromotionPiece()
 				// Update promotion piece in case it is invalid.
-				if promotionPiece < enum.PromotionKnight || promotionPiece > enum.PromotionQueen {
-					promotionPiece = enum.PromotionQueen
+				if promo < enum.PromotionKnight || promo > enum.PromotionQueen {
+					promo = enum.PromotionQueen
 				}
-				g.LegalMoves.Moves[i] = movegen.NewMove(to, from, promotionPiece, enum.MovePromotion)
+				g.LegalMoves.Moves[i] = movegen.NewMove(m.To(), m.From(), promo, enum.MovePromotion)
 			}
 			return i
 		}

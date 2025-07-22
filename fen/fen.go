@@ -1,5 +1,5 @@
 // Package fen implements conversions between the Forsyth-Edwards Notation strings and bitboard arrays.
-// fen expects that the passed FEN and bitboard arrays are always valid and may panic if they are not.
+// fen expects that the passed FEN and bitboard arrays are always valid, and may panic if they are not.
 package fen
 
 import (
