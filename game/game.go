@@ -18,9 +18,11 @@ type Game struct {
 	Repetitions     map[string]int
 	EnPassantTarget int
 	CastlingRights  enum.CastlingFlag
-	ActiveColor     enum.Color
-	HalfmoveCnt     int
-	FullmoveCnt     int
+	// Keep track of all captured pieces.
+	Captured    []enum.Piece
+	ActiveColor enum.Color
+	HalfmoveCnt int
+	FullmoveCnt int
 }
 
 // CompletedMove represents a completed move.
@@ -36,8 +38,9 @@ type CompletedMove struct {
 func NewGame() *Game {
 	g := &Game{
 		Bitboards:       fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"),
-		MoveStack:       make([]CompletedMove, 0),
+		MoveStack:       make([]CompletedMove, 0, 15),
 		Repetitions:     make(map[string]int),
+		Captured:        make([]enum.Piece, 0, 15),
 		EnPassantTarget: 0,
 		CastlingRights:  0xF,
 		ActiveColor:     enum.ColorWhite,
@@ -66,9 +69,15 @@ func (g *Game) SetState(bitboards [12]uint64, enPassantTarget int, castlingRight
 // It is a caller responsibility to check if the specified move is legal.
 // Generates legal moves for the next turn.
 func (g *Game) PushMove(move movegen.Move) {
-	movedPiece := movegen.GetPieceTypeFromSquare(g.Bitboards, 1<<move.From())
-	isCapture := movegen.GetPieceTypeFromSquare(g.Bitboards, 1<<move.To()) != -1
+	movedPiece := movegen.GetPieceFromSquare(g.Bitboards, 1<<move.From())
+	capturedPiece := movegen.GetPieceFromSquare(g.Bitboards, 1<<move.To())
+
 	movegen.MakeMove(&g.Bitboards, move)
+
+	// Memorize captured piece.
+	if capturedPiece != enum.PieceNone {
+		g.Captured = append(g.Captured, capturedPiece)
+	}
 
 	// Reset the en passant target since the en passant capture is possible only for 1 move.
 	g.EnPassantTarget = 0
@@ -103,7 +112,7 @@ func (g *Game) PushMove(move movegen.Move) {
 		g.CastlingRights &= ^enum.CastlingBlackShort
 	}
 
-	if isCapture ||
+	if capturedPiece != enum.PieceNone ||
 		movedPiece == enum.PieceWPawn || movedPiece == enum.PieceBPawn {
 		g.HalfmoveCnt = 0
 	} else {

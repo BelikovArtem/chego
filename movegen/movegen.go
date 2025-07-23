@@ -323,13 +323,13 @@ func GenLegalMoves(bitboards [12]uint64, color enum.Color, castlingRights enum.C
 func MakeMove(bitboards *[12]uint64, move Move) {
 	var from, to uint64 = 1 << move.From(), 1 << move.To()
 	fromTo := from ^ to
-	movedPiece := GetPieceTypeFromSquare(*bitboards, from)
+	movedPiece := GetPieceFromSquare(*bitboards, from)
 
 	switch move.Type() {
 	case enum.MoveNormal:
 		// If the move is capture.
-		capturedPieceType := GetPieceTypeFromSquare(*bitboards, to)
-		if capturedPieceType != -1 {
+		capturedPieceType := GetPieceFromSquare(*bitboards, to)
+		if capturedPieceType != enum.PieceNone {
 			// Remove the captured piece from the board.
 			bitboards[capturedPieceType] ^= to
 		}
@@ -352,8 +352,8 @@ func MakeMove(bitboards *[12]uint64, move Move) {
 
 	case enum.MovePromotion:
 		// If the move is capture-promotion.
-		capturedPieceType := GetPieceTypeFromSquare(*bitboards, to)
-		if capturedPieceType != -1 {
+		capturedPieceType := GetPieceFromSquare(*bitboards, to)
+		if capturedPieceType != enum.PieceNone {
 			// Remove the captured piece from the board.
 			bitboards[capturedPieceType] ^= to
 		}
@@ -856,13 +856,13 @@ func genAttackedSquares(bitboards [12]uint64, occupancy uint64, color enum.Color
 	return attacked
 }
 
-// GetPieceTypeFromSquare returns the type of the piece that stands on the specified square.
-// Returns -1 if there is no piece on the square.
-func GetPieceTypeFromSquare(bitboards [12]uint64, square uint64) enum.Piece {
+// GetPieceFromSquare returns the type of the piece that stands on the specified square.
+// Returns [enum.PieceNone] if there is no piece on the square.
+func GetPieceFromSquare(bitboards [12]uint64, square uint64) enum.Piece {
 	for pieceType, bitboard := range bitboards {
 		if square&bitboard != 0 {
 			return pieceType
 		}
 	}
-	return -1
+	return enum.PieceNone
 }

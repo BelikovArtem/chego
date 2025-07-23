@@ -1,4 +1,4 @@
-// Package enum contains custom type declarations and predefined constants.
+// Package enum contains declarations of custom types and predefined constants.
 // Used to avoid the "magic numbers" antipattern and simplify testing.
 package enum
 
@@ -18,6 +18,7 @@ const (
 	PieceBRook
 	PieceBQueen
 	PieceBKing
+	PieceNone = -1
 )
 
 // PromotionFlag is an allias type to avoid bothersome conversion between int and Color.
