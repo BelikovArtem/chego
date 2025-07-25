@@ -3,7 +3,7 @@ package fen
 import (
 	"testing"
 
-	"github.com/BelikovArtem/chego/enum"
+	"github.com/BelikovArtem/chego/types"
 )
 
 func TestToBitboardArray(t *testing.T) {
@@ -76,77 +76,72 @@ func TestFromBitboardArray(t *testing.T) {
 func TestParse(t *testing.T) {
 	testcases := []struct {
 		fenStr                  string
-		expectedActiveColor     enum.Color
-		expectedCastlingRights  enum.CastlingFlag
+		expectedActiveColor     types.Color
+		expectedCastlingRights  types.CastlingRights
 		expectedEnPassantTarget int
 		expectedHalfmoveCnt     int
 		expectedFullmoveCnt     int
 	}{
 		{
 			"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-			enum.ColorWhite, 0xF, 0, 0, 1,
+			types.ColorWhite, 0xF, 0, 0, 1,
 		},
 		{
 			"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
-			enum.ColorBlack, 0xF, enum.SE3, 0, 1,
+			types.ColorBlack, 0xF, types.SE3, 0, 1,
 		},
 	}
 
 	for _, tc := range testcases {
-		_, a, c, e, h, f := Parse(tc.fenStr)
+		p := Parse(tc.fenStr)
 
-		if a != tc.expectedActiveColor {
-			t.Fatalf("test \"%s\" failed: expected color %b, got %b", tc.fenStr, tc.expectedActiveColor, a)
+		if p.ActiveColor != tc.expectedActiveColor {
+			t.Fatalf("test \"%s\" failed: expected color %b, got %b", tc.fenStr,
+				tc.expectedActiveColor, p.ActiveColor)
 		}
-		if c != tc.expectedCastlingRights {
+		if p.CastlingRights != tc.expectedCastlingRights {
 			t.Fatalf("test \"%s\" failed: expected castling rights %b, got %b", tc.fenStr,
-				tc.expectedCastlingRights, c)
+				tc.expectedCastlingRights, p.CastlingRights)
 		}
-		if e != tc.expectedEnPassantTarget {
+		if p.EPTarget != tc.expectedEnPassantTarget {
 			t.Fatalf("test \"%s\" failed: expected en passant %d, got %d", tc.fenStr,
-				tc.expectedEnPassantTarget, e)
+				tc.expectedEnPassantTarget, p.EPTarget)
 		}
-		if h != tc.expectedHalfmoveCnt {
+		if p.HalfmoveCnt != tc.expectedHalfmoveCnt {
 			t.Fatalf("test \"%s\" failed: expected halfmove %d, got %d", tc.fenStr,
-				tc.expectedHalfmoveCnt, h)
+				tc.expectedHalfmoveCnt, p.HalfmoveCnt)
 		}
-		if f != tc.expectedFullmoveCnt {
+		if p.FullmoveCnt != tc.expectedFullmoveCnt {
 			t.Fatalf("test \"%s\" failed: expected fullmove %d, got %d", tc.fenStr,
-				tc.expectedFullmoveCnt, f)
+				tc.expectedFullmoveCnt, p.FullmoveCnt)
 		}
 	}
 }
 
 func TestSerialize(t *testing.T) {
 	testcases := []struct {
-		bitboards       [12]uint64
-		activeColor     enum.Color
-		castlingRights  enum.CastlingFlag
-		enPassantTarget int
-		halfmoveCnt     int
-		fullmoveCnt     int
-		expected        string
+		position types.Position
+		expected string
 	}{
-		{
-			ToBitboardArray("1r3r2/4bpkp/1qb1p1p1/3pP1P1/p1pP1Q2/PpP2N1R/1Pn1B2P/3RB2K"),
-			enum.ColorWhite, 0x0, 0x0, 0, 1,
-			"1r3r2/4bpkp/1qb1p1p1/3pP1P1/p1pP1Q2/PpP2N1R/1Pn1B2P/3RB2K w - - 0 1",
-		},
-		{
-			ToBitboardArray("rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR"),
-			enum.ColorBlack, 0xF, enum.SF3, 0, 1,
-			"rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR b KQkq f3 0 1",
-		},
-		{
-			ToBitboardArray("4k3/8/8/8/8/3P4/2K5/8"),
-			enum.ColorWhite, 0x0, 0x0, 0, 64,
-			"4k3/8/8/8/8/3P4/2K5/8 w - - 0 64",
-		},
+		{types.Position{
+			Bitboards:   ToBitboardArray("1r3r2/4bpkp/1qb1p1p1/3pP1P1/p1pP1Q2/PpP2N1R/1Pn1B2P/3RB2K"),
+			ActiveColor: types.ColorWhite, CastlingRights: 0x0, EPTarget: 0x0,
+			HalfmoveCnt: 0, FullmoveCnt: 1,
+		}, "1r3r2/4bpkp/1qb1p1p1/3pP1P1/p1pP1Q2/PpP2N1R/1Pn1B2P/3RB2K w - - 0 1"},
+		{types.Position{
+			Bitboards:   ToBitboardArray("rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR"),
+			ActiveColor: types.ColorBlack, CastlingRights: 0xF, EPTarget: types.SF3,
+			HalfmoveCnt: 0, FullmoveCnt: 1,
+		}, "rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR b KQkq f3 0 1"},
+		{types.Position{
+			Bitboards:   ToBitboardArray("4k3/8/8/8/8/3P4/2K5/8"),
+			ActiveColor: types.ColorWhite, CastlingRights: 0x0,
+			EPTarget: 0x0, HalfmoveCnt: 0, FullmoveCnt: 64,
+		}, "4k3/8/8/8/8/3P4/2K5/8 w - - 0 64"},
 	}
 
 	for _, tc := range testcases {
-		got := Serialize(tc.bitboards, tc.activeColor, tc.castlingRights, tc.enPassantTarget,
-			tc.halfmoveCnt, tc.fullmoveCnt)
+		got := Serialize(tc.position)
 
 		if got != tc.expected {
 			t.Fatalf("expected \"%s\", got \"%s\"", tc.expected, got)
@@ -178,10 +173,17 @@ func BenchmarkParse(b *testing.B) {
 
 func BenchmarkSerialize(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		Serialize([12]uint64{
-			0xFF00, 0x42, 0x24, 0x81, 0x8, 0x10,
-			0xFF000000000000, 0x4200000000000000, 0x2400000000000000,
-			0x8100000000000000, 0x800000000000000, 0x1000000000000000,
-		}, enum.ColorWhite, 0xF, 0, 0, 1)
+		Serialize(types.Position{
+			Bitboards: [12]uint64{
+				0xFF00, 0x42, 0x24, 0x81, 0x8, 0x10,
+				0xFF000000000000, 0x4200000000000000, 0x2400000000000000,
+				0x8100000000000000, 0x800000000000000, 0x1000000000000000,
+			},
+			ActiveColor:    types.ColorWhite,
+			CastlingRights: 0xF,
+			EPTarget:       0,
+			HalfmoveCnt:    0,
+			FullmoveCnt:    1,
+		})
 	}
 }

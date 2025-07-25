@@ -5,10 +5,9 @@ package format
 import (
 	"strings"
 
-	"github.com/BelikovArtem/chego/enum"
+	"github.com/BelikovArtem/chego/types"
 )
 
-// pieceSymbols is an array of chess piece runes.
 var pieceSymbols = [12]rune{
 	'♙', '♘', '♗', '♖', '♕', '♔',
 	'♟', '♞', '♝', '♜', '♛', '♚',
@@ -26,7 +25,7 @@ var squareString = [64]string{
 }
 
 // Bitboard formats a single bitboard into a string.
-func Bitboard(bitboard uint64, pieceType enum.Piece) string {
+func Bitboard(bitboard uint64, pieceType types.Piece) string {
 	var bitboardStr strings.Builder
 
 	for rank := 7; rank >= 0; rank-- {
@@ -52,8 +51,7 @@ func Bitboard(bitboard uint64, pieceType enum.Piece) string {
 }
 
 // Position formats a full chess position into a string.
-func Position(bitboards [12]uint64, activeColor enum.Color,
-	enPasssantTarget int, castlingRights enum.CastlingFlag) string {
+func Position(p types.Position) string {
 	var positionStr strings.Builder
 
 	for rank := 7; rank >= 0; rank-- {
@@ -66,7 +64,7 @@ func Position(bitboards [12]uint64, activeColor enum.Color,
 			var symbol rune = '.'
 
 			for i := 0; i < 12; i++ {
-				if square&bitboards[i] != 0 {
+				if square&p.Bitboards[i] != 0 {
 					symbol = pieceSymbols[i]
 					break
 				}
@@ -80,29 +78,29 @@ func Position(bitboards [12]uint64, activeColor enum.Color,
 
 	positionStr.WriteString("   a  b  c  d  e  f  g  h\nActive color: ")
 
-	if activeColor == enum.ColorWhite {
+	if p.ActiveColor == types.ColorWhite {
 		positionStr.WriteString("white\nEn passant: ")
 	} else {
 		positionStr.WriteString("black\nEn passant: ")
 	}
 
-	if enPasssantTarget == 0 {
+	if p.EPTarget == 0 {
 		positionStr.WriteString("none\nCastling rights: ")
 	} else {
-		positionStr.WriteString(squareString[enPasssantTarget])
+		positionStr.WriteString(squareString[p.EPTarget])
 		positionStr.WriteString("\nCastling rights: ")
 	}
 
-	if castlingRights&enum.CastlingWhiteShort != 0 {
+	if p.CastlingRights&types.CastlingWhiteShort != 0 {
 		positionStr.WriteByte('K')
 	}
-	if castlingRights&enum.CastlingWhiteLong != 0 {
+	if p.CastlingRights&types.CastlingWhiteLong != 0 {
 		positionStr.WriteByte('Q')
 	}
-	if castlingRights&enum.CastlingBlackShort != 0 {
+	if p.CastlingRights&types.CastlingBlackShort != 0 {
 		positionStr.WriteByte('k')
 	}
-	if castlingRights&enum.CastlingBlackLong != 0 {
+	if p.CastlingRights&types.CastlingBlackLong != 0 {
 		positionStr.WriteByte('q')
 	}
 

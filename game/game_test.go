@@ -4,9 +4,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/BelikovArtem/chego/enum"
 	"github.com/BelikovArtem/chego/fen"
 	"github.com/BelikovArtem/chego/movegen"
+	"github.com/BelikovArtem/chego/types"
 )
 
 func TestMain(m *testing.M) {
@@ -19,146 +19,146 @@ func TestMain(m *testing.M) {
 func TestPushMove(t *testing.T) {
 	testcases := []struct {
 		name                    string
-		move                    movegen.Move
+		move                    types.Move
 		expectedEnPassantTarget int
-		expectedCastlingRights  enum.CastlingFlag
-		expectedActiveColor     enum.Color
+		expectedCastlingRights  types.CastlingRights
+		expectedActiveColor     types.Color
 	}{
 		{
-			"h4", movegen.NewMove(enum.SH4, enum.SH2, 0, enum.MoveNormal),
-			enum.SH3, 0xF, enum.ColorBlack,
+			"h4", types.NewMove(types.SH4, types.SH2, types.MoveNormal),
+			types.SH3, 0xF, types.ColorBlack,
 		},
 		{
-			"e5", movegen.NewMove(enum.SE5, enum.SE7, 0, enum.MoveNormal),
-			enum.SE6, 0xF, enum.ColorWhite,
+			"e5", types.NewMove(types.SE5, types.SE7, types.MoveNormal),
+			types.SE6, 0xF, types.ColorWhite,
 		},
 		{
-			"c4", movegen.NewMove(enum.SC4, enum.SC2, 0, enum.MoveNormal),
-			enum.SC3, 0xF, enum.ColorBlack,
+			"c4", types.NewMove(types.SC4, types.SC2, types.MoveNormal),
+			types.SC3, 0xF, types.ColorBlack,
 		},
 		{
-			"nf6", movegen.NewMove(enum.SF6, enum.SG8, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorWhite,
+			"nf6", types.NewMove(types.SF6, types.SG8, types.MoveNormal),
+			0, 0xF, types.ColorWhite,
 		},
 		{
-			"e3", movegen.NewMove(enum.SE3, enum.SE2, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorBlack,
+			"e3", types.NewMove(types.SE3, types.SE2, types.MoveNormal),
+			0, 0xF, types.ColorBlack,
 		},
 		{
-			"c6", movegen.NewMove(enum.SC6, enum.SC7, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorWhite,
+			"c6", types.NewMove(types.SC6, types.SC7, types.MoveNormal),
+			0, 0xF, types.ColorWhite,
 		},
 		{
-			"g4", movegen.NewMove(enum.SG4, enum.SG2, 0, enum.MoveNormal),
-			enum.SG3, 0xF, enum.ColorBlack,
+			"g4", types.NewMove(types.SG4, types.SG2, types.MoveNormal),
+			types.SG3, 0xF, types.ColorBlack,
 		},
 		{
-			"g6", movegen.NewMove(enum.SG6, enum.SG7, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorWhite,
+			"g6", types.NewMove(types.SG6, types.SG7, types.MoveNormal),
+			0, 0xF, types.ColorWhite,
 		},
 		{
-			"d4", movegen.NewMove(enum.SD4, enum.SD2, 0, enum.MoveNormal),
-			enum.SD3, 0xF, enum.ColorBlack,
+			"d4", types.NewMove(types.SD4, types.SD2, types.MoveNormal),
+			types.SD3, 0xF, types.ColorBlack,
 		},
 		{
-			"d6", movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorWhite,
+			"d6", types.NewMove(types.SD6, types.SD7, types.MoveNormal),
+			0, 0xF, types.ColorWhite,
 		},
 		{
-			"g5", movegen.NewMove(enum.SG5, enum.SG4, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorBlack,
+			"g5", types.NewMove(types.SG5, types.SG4, types.MoveNormal),
+			0, 0xF, types.ColorBlack,
 		},
 		{
-			"nh5", movegen.NewMove(enum.SH5, enum.SF6, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorWhite,
+			"nh5", types.NewMove(types.SH5, types.SF6, types.MoveNormal),
+			0, 0xF, types.ColorWhite,
 		},
 		{
-			"dxe5", movegen.NewMove(enum.SE5, enum.SD4, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorBlack,
+			"dxe5", types.NewMove(types.SE5, types.SD4, types.MoveNormal),
+			0, 0xF, types.ColorBlack,
 		},
 		{
-			"dxe5", movegen.NewMove(enum.SE5, enum.SD6, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorWhite,
+			"dxe5", types.NewMove(types.SE5, types.SD6, types.MoveNormal),
+			0, 0xF, types.ColorWhite,
 		},
 		{
-			"Qcd8+", movegen.NewMove(enum.SD8, enum.SD1, 0, enum.MoveNormal),
-			0, 0xF, enum.ColorBlack,
+			"Qcd8+", types.NewMove(types.SD8, types.SD1, types.MoveNormal),
+			0, 0xF, types.ColorBlack,
 		},
 		{
-			"kxd8", movegen.NewMove(enum.SD8, enum.SE8, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorWhite,
+			"kxd8", types.NewMove(types.SD8, types.SE8, types.MoveNormal),
+			0, 0x3, types.ColorWhite,
 		},
 		{
-			"Nf3", movegen.NewMove(enum.SF3, enum.SG1, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorBlack,
+			"Nf3", types.NewMove(types.SF3, types.SG1, types.MoveNormal),
+			0, 0x3, types.ColorBlack,
 		},
 		{
-			"bg7", movegen.NewMove(enum.SG7, enum.SF8, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorWhite,
+			"bg7", types.NewMove(types.SG7, types.SF8, types.MoveNormal),
+			0, 0x3, types.ColorWhite,
 		},
 		{
-			"Nc3", movegen.NewMove(enum.SC3, enum.SB1, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorBlack,
+			"Nc3", types.NewMove(types.SC3, types.SB1, types.MoveNormal),
+			0, 0x3, types.ColorBlack,
 		},
 		{
-			"bg4", movegen.NewMove(enum.SG4, enum.SC8, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorWhite,
+			"bg4", types.NewMove(types.SG4, types.SC8, types.MoveNormal),
+			0, 0x3, types.ColorWhite,
 		},
 		{
-			"Be2", movegen.NewMove(enum.SE2, enum.SF1, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorBlack,
+			"Be2", types.NewMove(types.SE2, types.SF1, types.MoveNormal),
+			0, 0x3, types.ColorBlack,
 		},
 		{
-			"nd7", movegen.NewMove(enum.SD7, enum.SB8, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorWhite,
+			"nd7", types.NewMove(types.SD7, types.SB8, types.MoveNormal),
+			0, 0x3, types.ColorWhite,
 		},
 		{
-			"Nd2", movegen.NewMove(enum.SD2, enum.SF3, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorBlack,
+			"Nd2", types.NewMove(types.SD2, types.SF3, types.MoveNormal),
+			0, 0x3, types.ColorBlack,
 		},
 		{
-			"bxe2", movegen.NewMove(enum.SE2, enum.SG4, 0, enum.MoveNormal),
-			0, 0x3, enum.ColorWhite,
+			"bxe2", types.NewMove(types.SE2, types.SG4, types.MoveNormal),
+			0, 0x3, types.ColorWhite,
 		},
 		{
-			"Kxe2", movegen.NewMove(enum.SE2, enum.SE1, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorBlack,
+			"Kxe2", types.NewMove(types.SE2, types.SE1, types.MoveNormal),
+			0, 0x0, types.ColorBlack,
 		},
 		{
-			"h6", movegen.NewMove(enum.SH6, enum.SH7, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorWhite,
+			"h6", types.NewMove(types.SH6, types.SH7, types.MoveNormal),
+			0, 0x0, types.ColorWhite,
 		},
 		{
-			"Kde4", movegen.NewMove(enum.SE4, enum.SD2, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorBlack,
+			"Kde4", types.NewMove(types.SE4, types.SD2, types.MoveNormal),
+			0, 0x0, types.ColorBlack,
 		},
 		{
-			"hxg5", movegen.NewMove(enum.SG5, enum.SH6, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorWhite,
+			"hxg5", types.NewMove(types.SG5, types.SH6, types.MoveNormal),
+			0, 0x0, types.ColorWhite,
 		},
 		{
-			"Nxg5", movegen.NewMove(enum.SG5, enum.SE4, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorBlack,
+			"Nxg5", types.NewMove(types.SG5, types.SE4, types.MoveNormal),
+			0, 0x0, types.ColorBlack,
 		},
 		{
-			"ke7", movegen.NewMove(enum.SE7, enum.SD8, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorWhite,
+			"ke7", types.NewMove(types.SE7, types.SD8, types.MoveNormal),
+			0, 0x0, types.ColorWhite,
 		},
 		{
-			"Rb1", movegen.NewMove(enum.SB1, enum.SA1, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorBlack,
+			"Rb1", types.NewMove(types.SB1, types.SA1, types.MoveNormal),
+			0, 0x0, types.ColorBlack,
 		},
 		{
-			"rg8", movegen.NewMove(enum.SG8, enum.SH8, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorWhite,
+			"rg8", types.NewMove(types.SG8, types.SH8, types.MoveNormal),
+			0, 0x0, types.ColorWhite,
 		},
 		{
-			"rg1", movegen.NewMove(enum.SG1, enum.SH1, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorBlack,
+			"rg1", types.NewMove(types.SG1, types.SH1, types.MoveNormal),
+			0, 0x0, types.ColorBlack,
 		},
 		{
-			"rb8", movegen.NewMove(enum.SB8, enum.SA8, 0, enum.MoveNormal),
-			0, 0x0, enum.ColorWhite,
+			"rb8", types.NewMove(types.SB8, types.SA8, types.MoveNormal),
+			0, 0x0, types.ColorWhite,
 		},
 	}
 
@@ -168,33 +168,33 @@ func TestPushMove(t *testing.T) {
 	for _, tc := range testcases {
 		game.PushMove(tc.move)
 
-		if game.EnPassantTarget != tc.expectedEnPassantTarget {
+		if game.Position.EPTarget != tc.expectedEnPassantTarget {
 			t.Fatalf("test \"%s\" failed: expected EP square %d, got %d", tc.name,
-				tc.expectedEnPassantTarget, game.EnPassantTarget)
+				tc.expectedEnPassantTarget, game.Position.EPTarget)
 		}
-		if game.CastlingRights != tc.expectedCastlingRights {
+		if game.Position.CastlingRights != tc.expectedCastlingRights {
 			t.Fatalf("test \"%s\" failed: expected castling rights %b, got %b", tc.name,
-				tc.expectedCastlingRights, game.CastlingRights)
+				tc.expectedCastlingRights, game.Position.CastlingRights)
 		}
-		if game.ActiveColor != tc.expectedActiveColor {
+		if game.Position.ActiveColor != tc.expectedActiveColor {
 			t.Fatalf("test \"%s\" failed: expected active color %b, got %b", tc.name,
-				tc.expectedActiveColor, game.ActiveColor)
+				tc.expectedActiveColor, game.Position.ActiveColor)
 		}
 	}
 }
 
 func TestPopMove(t *testing.T) {
 	testcases := []struct {
-		CompletedMoves []movegen.Move
+		CompletedMoves []types.Move
 		expectedFen    string
 	}{
-		{[]movegen.Move{
-			movegen.NewMove(enum.SE4, enum.SE2, 0, enum.MoveNormal),
+		{[]types.Move{
+			types.NewMove(types.SE4, types.SE2, types.MoveNormal),
 		},
 			"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"},
-		{[]movegen.Move{
-			movegen.NewMove(enum.SE4, enum.SE2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SB5, enum.SB7, 0, enum.MoveNormal),
+		{[]types.Move{
+			types.NewMove(types.SE4, types.SE2, types.MoveNormal),
+			types.NewMove(types.SB5, types.SB7, types.MoveNormal),
 		},
 			"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"},
 	}
@@ -207,8 +207,7 @@ func TestPopMove(t *testing.T) {
 		}
 
 		g.PopMove()
-		got := fen.Serialize(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget,
-			g.HalfmoveCnt, g.FullmoveCnt)
+		got := fen.Serialize(g.Position)
 		if got != tc.expectedFen {
 			t.Fatalf("expected fen \"%s\", got \"%s\"", tc.expectedFen, got)
 		}
@@ -217,101 +216,95 @@ func TestPopMove(t *testing.T) {
 
 func TestIsThreefoldRepetition(t *testing.T) {
 	testcases := []struct {
-		moveStack []movegen.Move
+		moveStack []types.Move
 		expected  bool
 	}{
-		{[]movegen.Move{
-			movegen.NewMove(enum.SH3, enum.SH2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH6, enum.SH7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
+		{[]types.Move{
+			types.NewMove(types.SH3, types.SH2, types.MoveNormal),
+			types.NewMove(types.SH6, types.SH7, types.MoveNormal),
+			types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+			types.NewMove(types.SH7, types.SH8, types.MoveNormal),
+			types.NewMove(types.SH1, types.SH2, types.MoveNormal),
+			types.NewMove(types.SH8, types.SH7, types.MoveNormal),
+			types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+			types.NewMove(types.SH7, types.SH8, types.MoveNormal),
+			types.NewMove(types.SH1, types.SH2, types.MoveNormal),
+			types.NewMove(types.SH8, types.SH7, types.MoveNormal),
+			types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+			types.NewMove(types.SH7, types.SH8, types.MoveNormal),
 		}, true},
-		{[]movegen.Move{
-			movegen.NewMove(enum.SH3, enum.SH2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH6, enum.SH7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD3, enum.SD2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD7, enum.SD8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD2, enum.SD1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD8, enum.SD7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD1, enum.SD2, 0, enum.MoveNormal),
+		{[]types.Move{
+			types.NewMove(types.SH3, types.SH2, types.MoveNormal),
+			types.NewMove(types.SH6, types.SH7, types.MoveNormal),
+			types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+			types.NewMove(types.SH7, types.SH8, types.MoveNormal),
+			types.NewMove(types.SH1, types.SH2, types.MoveNormal),
+			types.NewMove(types.SH8, types.SH7, types.MoveNormal),
+			types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+			types.NewMove(types.SH7, types.SH8, types.MoveNormal),
+			types.NewMove(types.SH1, types.SH2, types.MoveNormal),
+			types.NewMove(types.SH8, types.SH7, types.MoveNormal),
+			types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+			types.NewMove(types.SD6, types.SD7, types.MoveNormal),
+			types.NewMove(types.SD3, types.SD2, types.MoveNormal),
+			types.NewMove(types.SD7, types.SD8, types.MoveNormal),
+			types.NewMove(types.SD2, types.SD1, types.MoveNormal),
+			types.NewMove(types.SD8, types.SD7, types.MoveNormal),
+			types.NewMove(types.SD1, types.SD2, types.MoveNormal),
 		}, false},
-		{[]movegen.Move{
-			movegen.NewMove(enum.SE4, enum.SE2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SE5, enum.SE7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SF3, enum.SG1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SC6, enum.SB8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SG1, enum.SF3, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SB8, enum.SC6, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SF3, enum.SG1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SC6, enum.SB8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SG1, enum.SF3, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SB8, enum.SC6, 0, enum.MoveNormal),
+		{[]types.Move{
+			types.NewMove(types.SE4, types.SE2, types.MoveNormal),
+			types.NewMove(types.SE5, types.SE7, types.MoveNormal),
+			types.NewMove(types.SF3, types.SG1, types.MoveNormal),
+			types.NewMove(types.SC6, types.SB8, types.MoveNormal),
+			types.NewMove(types.SG1, types.SF3, types.MoveNormal),
+			types.NewMove(types.SB8, types.SC6, types.MoveNormal),
+			types.NewMove(types.SF3, types.SG1, types.MoveNormal),
+			types.NewMove(types.SC6, types.SB8, types.MoveNormal),
+			types.NewMove(types.SG1, types.SF3, types.MoveNormal),
+			types.NewMove(types.SB8, types.SC6, types.MoveNormal),
 		}, true},
-		{[]movegen.Move{
-			movegen.NewMove(enum.SD4, enum.SD2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD5, enum.SD4, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA6, enum.SA7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA3, enum.SA2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SC5, enum.SC7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA1, enum.SA2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA8, enum.SA7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA1, enum.SA2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA8, enum.SA7, 0, enum.MoveNormal),
+		{[]types.Move{
+			types.NewMove(types.SD4, types.SD2, types.MoveNormal),
+			types.NewMove(types.SD6, types.SD7, types.MoveNormal),
+			types.NewMove(types.SD5, types.SD4, types.MoveNormal),
+			types.NewMove(types.SA6, types.SA7, types.MoveNormal),
+			types.NewMove(types.SA3, types.SA2, types.MoveNormal),
+			types.NewMove(types.SC5, types.SC7, types.MoveNormal),
+			types.NewMove(types.SA2, types.SA1, types.MoveNormal),
+			types.NewMove(types.SA7, types.SA8, types.MoveNormal),
+			types.NewMove(types.SA1, types.SA2, types.MoveNormal),
+			types.NewMove(types.SA8, types.SA7, types.MoveNormal),
+			types.NewMove(types.SA2, types.SA1, types.MoveNormal),
+			types.NewMove(types.SA7, types.SA8, types.MoveNormal),
+			types.NewMove(types.SA1, types.SA2, types.MoveNormal),
+			types.NewMove(types.SA8, types.SA7, types.MoveNormal),
 		}, false},
-		{[]movegen.Move{
-			movegen.NewMove(enum.SD4, enum.SD2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SD5, enum.SD4, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA6, enum.SA7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA3, enum.SA2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SC5, enum.SC7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA1, enum.SA2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA8, enum.SA7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA1, enum.SA2, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA8, enum.SA7, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA2, enum.SA1, 0, enum.MoveNormal),
-			movegen.NewMove(enum.SA7, enum.SA8, 0, enum.MoveNormal),
+		{[]types.Move{
+			types.NewMove(types.SD4, types.SD2, types.MoveNormal),
+			types.NewMove(types.SD6, types.SD7, types.MoveNormal),
+			types.NewMove(types.SD5, types.SD4, types.MoveNormal),
+			types.NewMove(types.SA6, types.SA7, types.MoveNormal),
+			types.NewMove(types.SA3, types.SA2, types.MoveNormal),
+			types.NewMove(types.SC5, types.SC7, types.MoveNormal),
+			types.NewMove(types.SA2, types.SA1, types.MoveNormal),
+			types.NewMove(types.SA7, types.SA8, types.MoveNormal),
+			types.NewMove(types.SA1, types.SA2, types.MoveNormal),
+			types.NewMove(types.SA8, types.SA7, types.MoveNormal),
+			types.NewMove(types.SA2, types.SA1, types.MoveNormal),
+			types.NewMove(types.SA7, types.SA8, types.MoveNormal),
+			types.NewMove(types.SA1, types.SA2, types.MoveNormal),
+			types.NewMove(types.SA8, types.SA7, types.MoveNormal),
+			types.NewMove(types.SA2, types.SA1, types.MoveNormal),
+			types.NewMove(types.SA7, types.SA8, types.MoveNormal),
 		}, true},
 	}
 
 	for _, tc := range testcases {
 		game := NewGame()
 
-		for i, move := range tc.moveStack {
+		for _, move := range tc.moveStack {
 			game.PushMove(move)
-			game.LegalMoves = movegen.GenLegalMoves(game.Bitboards, game.ActiveColor, game.CastlingRights,
-				game.EnPassantTarget)
-			if i < len(tc.moveStack)-1 {
-				positionKey := position{game.LegalMoves, game.Bitboards, game.ActiveColor, game.CastlingRights}.repetitionKey()
-				game.Repetitions[positionKey]++
-			}
 		}
 
 		got := game.IsThreefoldRepetition()
@@ -338,7 +331,7 @@ func TestIsInsufficientMaterial(t *testing.T) {
 
 	game := NewGame()
 	for _, tc := range testcases {
-		game.Bitboards = fen.ToBitboardArray(tc.fenString)
+		game.Position.Bitboards = fen.ToBitboardArray(tc.fenString)
 
 		got := game.IsInsufficientMaterial()
 		if got != tc.expected {
@@ -359,12 +352,8 @@ func TestIsCheckmate(t *testing.T) {
 
 	game := NewGame()
 	for _, tc := range testcases {
-		bb, ac, cr, ep, _, _ := fen.Parse(tc.fenString)
-		game.Bitboards = bb
-		game.ActiveColor = ac
-		game.CastlingRights = cr
-		game.EnPassantTarget = ep
-		game.LegalMoves = movegen.GenLegalMoves(bb, ac, cr, ep)
+		game.Position = fen.Parse(tc.fenString)
+		movegen.GenLegalMoves(game.Position, &game.LegalMoves)
 
 		got := game.IsCheckmate()
 		if got != tc.expected {
@@ -375,12 +364,11 @@ func TestIsCheckmate(t *testing.T) {
 
 func BenchmarkPushMove(b *testing.B) {
 	game := NewGame()
-	bitboards := fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+	pos := fen.Parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
 	for b.Loop() {
-		game.PushMove(movegen.NewMove(enum.SE4, enum.SE2, 0, enum.MoveNormal))
-		// Restore the game state.
-		game.Bitboards = bitboards
+		game.Position = pos
+		game.PushMove(types.NewMove(types.SE4, types.SE2, types.MoveNormal))
 	}
 }
 
@@ -388,33 +376,32 @@ func BenchmarkPushMove(b *testing.B) {
 
 func BenchmarkIsThreefoldRepetition(b *testing.B) {
 	game := NewGame()
-	moveStack := []movegen.Move{
-		movegen.NewMove(enum.SH3, enum.SH2, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH6, enum.SH7, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH7, enum.SH8, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH1, enum.SH2, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH8, enum.SH7, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SH2, enum.SH1, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SD6, enum.SD7, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SD3, enum.SD2, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SD7, enum.SD8, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SD2, enum.SD1, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SD8, enum.SD7, 0, enum.MoveNormal),
-		movegen.NewMove(enum.SD1, enum.SD2, 0, enum.MoveNormal),
+	moveStack := []types.Move{
+		types.NewMove(types.SH3, types.SH2, types.MoveNormal),
+		types.NewMove(types.SH6, types.SH7, types.MoveNormal),
+		types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+		types.NewMove(types.SH7, types.SH8, types.MoveNormal),
+		types.NewMove(types.SH1, types.SH2, types.MoveNormal),
+		types.NewMove(types.SH8, types.SH7, types.MoveNormal),
+		types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+		types.NewMove(types.SH7, types.SH8, types.MoveNormal),
+		types.NewMove(types.SH1, types.SH2, types.MoveNormal),
+		types.NewMove(types.SH8, types.SH7, types.MoveNormal),
+		types.NewMove(types.SH2, types.SH1, types.MoveNormal),
+		types.NewMove(types.SD6, types.SD7, types.MoveNormal),
+		types.NewMove(types.SD3, types.SD2, types.MoveNormal),
+		types.NewMove(types.SD7, types.SD8, types.MoveNormal),
+		types.NewMove(types.SD2, types.SD1, types.MoveNormal),
+		types.NewMove(types.SD8, types.SD7, types.MoveNormal),
+		types.NewMove(types.SD1, types.SD2, types.MoveNormal),
 	}
 
 	for i, move := range moveStack {
 		game.PushMove(move)
-		game.LegalMoves = movegen.GenLegalMoves(game.Bitboards, game.ActiveColor, game.CastlingRights,
-			game.EnPassantTarget)
+		movegen.GenLegalMoves(game.Position, &game.LegalMoves)
 		if i < len(moveStack)-1 {
-			positionKey := position{game.LegalMoves, game.Bitboards, game.ActiveColor, game.CastlingRights}.repetitionKey()
-			game.Repetitions[positionKey]++
+			key := repetitionKey(game.Position, game.LegalMoves)
+			game.Repetitions[key]++
 		}
 	}
 

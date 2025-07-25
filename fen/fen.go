@@ -5,7 +5,7 @@ package fen
 import (
 	"strconv"
 
-	"github.com/BelikovArtem/chego/enum"
+	"github.com/BelikovArtem/chego/types"
 
 	// bits is used to speed up the iteration over bitboards.
 	"math/bits"
@@ -29,31 +29,31 @@ func ToBitboardArray(piecePlacementData string) [12]uint64 {
 			// Convert byte to the integer it represents.
 			squareIndex += int(char - '0')
 		} else { // There is piece on a square.
-			var pieceType enum.Piece // enum.PieceWPawn by default.
+			var pieceType types.Piece // types.PieceWPawn by default.
 			// Manual switch construction is ~3x faster than map approach.
 			switch char {
 			case 'N':
-				pieceType = enum.PieceWKnight
+				pieceType = types.PieceWKnight
 			case 'B':
-				pieceType = enum.PieceWBishop
+				pieceType = types.PieceWBishop
 			case 'R':
-				pieceType = enum.PieceWRook
+				pieceType = types.PieceWRook
 			case 'Q':
-				pieceType = enum.PieceWQueen
+				pieceType = types.PieceWQueen
 			case 'K':
-				pieceType = enum.PieceWKing
+				pieceType = types.PieceWKing
 			case 'p':
-				pieceType = enum.PieceBPawn
+				pieceType = types.PieceBPawn
 			case 'n':
-				pieceType = enum.PieceBKnight
+				pieceType = types.PieceBKnight
 			case 'b':
-				pieceType = enum.PieceBBishop
+				pieceType = types.PieceBBishop
 			case 'r':
-				pieceType = enum.PieceBRook
+				pieceType = types.PieceBRook
 			case 'q':
-				pieceType = enum.PieceBQueen
+				pieceType = types.PieceBQueen
 			case 'k':
-				pieceType = enum.PieceBKing
+				pieceType = types.PieceBKing
 			}
 			// Set the bit on the bitboard to place a piece.
 			bitboards[pieceType] |= 1 << squareIndex
@@ -148,7 +148,7 @@ func squareFromString(str string) int {
 }
 
 // Parse parses the given FEN string and returns the values of its fields.
-func Parse(fenStr string) ([12]uint64, enum.Color, enum.CastlingFlag, int, int, int) {
+func Parse(fenStr string) (p types.Position) {
 	var fields [6]string
 	// Separate FEN fields.
 	var j, prev int
@@ -162,72 +162,70 @@ func Parse(fenStr string) ([12]uint64, enum.Color, enum.CastlingFlag, int, int, 
 	}
 	fields[5] = fenStr[prev:]
 	// Parce piece placement.
-	bitboards := ToBitboardArray(fields[0])
+	p.Bitboards = ToBitboardArray(fields[0])
 	// Parse active color.
-	var activeColor enum.Color
 	if fields[1] == "b" {
-		activeColor = enum.ColorBlack
+		p.ActiveColor = types.ColorBlack
 	}
 	// Parse castling rights.
-	var castlingRights enum.CastlingFlag
 	for i := 0; i < len(fields[2]); i++ {
 		switch fields[2][i] {
 		case 'K':
-			castlingRights |= enum.CastlingWhiteShort
+			p.CastlingRights |= types.CastlingWhiteShort
 		case 'Q':
-			castlingRights |= enum.CastlingWhiteLong
+			p.CastlingRights |= types.CastlingWhiteLong
 		case 'k':
-			castlingRights |= enum.CastlingBlackShort
+			p.CastlingRights |= types.CastlingBlackShort
 		case 'q':
-			castlingRights |= enum.CastlingBlackLong
+			p.CastlingRights |= types.CastlingBlackLong
 		}
 	}
 	// Parse en passant target square.
-	enPassantTarget := squareFromString(fields[3])
+	p.EPTarget = squareFromString(fields[3])
 	// Parse halfmove counter.
-	halfmoveCnt, err := strconv.Atoi(fields[4])
+	var err error
+	p.HalfmoveCnt, err = strconv.Atoi(fields[4])
 	if err != nil {
 		panic("cannot parse halfmove counter from FEN string")
 	}
 	// Parse fullmove counter.
-	fullmoveCnt, err := strconv.Atoi(fields[5])
+	p.FullmoveCnt, err = strconv.Atoi(fields[5])
 	if err != nil {
 		panic("cannot parse fullmove counter from FEN string")
 	}
 
-	return bitboards, activeColor, castlingRights, enPassantTarget, halfmoveCnt, fullmoveCnt
+	return p
 }
 
-// Serialize serializes the game state into a FEN string.
+// Serialize serializes the specified position into a FEN string.
 // FEN string contains six fields, each separated by a space.
-func Serialize(bitboards [12]uint64, activeColor enum.Color, castlingRights enum.CastlingFlag,
-	enPassantTarget, halfmoveCnt, fullmoveCnt int) string {
+func Serialize(p types.Position) string {
 	var fenStr strings.Builder
 	fenStr.Grow(64)
 
 	// 1 field: piece placement.
-	fenStr.WriteString(FromBitboardArray(bitboards))
+	fenStr.WriteString(FromBitboardArray(p.Bitboards))
 	// 2 field: active color.
-	if activeColor == enum.ColorWhite {
+	if p.ActiveColor == types.ColorWhite {
 		fenStr.WriteString(" w ")
 	} else {
 		fenStr.WriteString(" b ")
 	}
 	// 3 field: castling rights.
 	cnt := 4
-	if castlingRights&enum.CastlingWhiteShort != 0 {
+	if p.CastlingRights&types.CastlingWhiteShort != 0 {
 		fenStr.WriteByte('K')
 		cnt--
 	}
-	if castlingRights&enum.CastlingWhiteLong != 0 {
+	if p.CastlingRights&types.CastlingWhiteLong != 0 {
 		fenStr.WriteByte('Q')
 		cnt--
 	}
-	if castlingRights&enum.CastlingBlackShort != 0 {
+	if p.CastlingRights&types.CastlingBlackShort != 0 {
 		fenStr.WriteByte('k')
 		cnt--
 	}
-	if castlingRights&enum.CastlingBlackLong != 0 {
+	if p.CastlingRights&types.CastlingBlackLong != 0 {
 		fenStr.WriteByte('q')
 		cnt--
 	}
@@ -236,18 +234,19 @@ func Serialize(bitboards [12]uint64, activeColor enum.Color, castlingRights enum
 	}
 	fenStr.WriteByte(' ')
 	// 4 field: en passant target square.
-	if enPassantTarget == 0 {
+	if p.EPTarget == 0 {
 		fenStr.WriteString("- ")
 	} else {
 		files := "abcdefgh"
-		fenStr.WriteByte(files[enPassantTarget%8])
-		fenStr.WriteByte('0' + byte(enPassantTarget/8+1))
+		fenStr.WriteByte(files[p.EPTarget%8])
+		fenStr.WriteByte('0' + byte(p.EPTarget/8+1))
 		fenStr.WriteByte(' ')
 	}
 	// 5 field: the number of halfmoves.
-	fenStr.WriteString(strconv.Itoa(halfmoveCnt))
+	fenStr.WriteString(strconv.Itoa(p.HalfmoveCnt))
 	fenStr.WriteByte(' ')
 	// 6 field: the number of fullmoves.
-	fenStr.WriteString(strconv.Itoa(fullmoveCnt))
+	fenStr.WriteString(strconv.Itoa(p.FullmoveCnt))
+
 	return fenStr.String()
 }

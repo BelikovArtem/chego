@@ -5,24 +5,19 @@ package game
 
 import (
 	"github.com/BelikovArtem/chego/bitutil"
-	"github.com/BelikovArtem/chego/enum"
 	"github.com/BelikovArtem/chego/fen"
 	"github.com/BelikovArtem/chego/movegen"
+	"github.com/BelikovArtem/chego/types"
 )
 
 // Game represents a single chess game state.
 type Game struct {
-	LegalMoves      movegen.MoveList
-	Bitboards       [12]uint64
-	MoveStack       []CompletedMove
-	Repetitions     map[string]int
-	EnPassantTarget int
-	CastlingRights  enum.CastlingFlag
+	Position    types.Position
+	LegalMoves  types.MoveList
+	MoveStack   []CompletedMove
+	Repetitions map[string]int
 	// Keep track of all captured pieces.
-	Captured    []enum.Piece
-	ActiveColor enum.Color
-	HalfmoveCnt int
-	FullmoveCnt int
+	Captured []types.Piece
 }
 
 // CompletedMove represents a completed move.
@@ -30,113 +25,51 @@ type CompletedMove struct {
 	// Game state after completing the move to enable move undo and state restoration.
 	FenString string
 	// Move itself.
-	Move movegen.Move
+	Move types.Move
 }
 
 // NewGame creates a new game initialized with the default chess position.
 // Generates legal moves.
 func NewGame() *Game {
 	g := &Game{
-		Bitboards:       fen.ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"),
-		MoveStack:       make([]CompletedMove, 0, 15),
-		Repetitions:     make(map[string]int),
-		Captured:        make([]enum.Piece, 0, 15),
-		EnPassantTarget: 0,
-		CastlingRights:  0xF,
-		ActiveColor:     enum.ColorWhite,
-		HalfmoveCnt:     0,
-		FullmoveCnt:     1,
+		Position:    fen.Parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"),
+		MoveStack:   make([]CompletedMove, 0, 15),
+		Repetitions: make(map[string]int),
+		Captured:    make([]types.Piece, 0, 15),
 	}
 
-	g.LegalMoves = movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget)
+	movegen.GenLegalMoves(g.Position, &g.LegalMoves)
+	// Add beginning repitition key.
+	key := repetitionKey(g.Position, g.LegalMoves)
+	g.Repetitions[key]++
 	return g
-}
-
-// SetState sets the game state and generates legal moves.
-func (g *Game) SetState(bitboards [12]uint64, enPassantTarget int, castlingRights enum.CastlingFlag,
-	activeColor enum.Color, halfmoveCnt, fullmoveCnt int) {
-	g.Bitboards = bitboards
-	g.EnPassantTarget = enPassantTarget
-	g.CastlingRights = castlingRights
-	g.ActiveColor = activeColor
-	g.HalfmoveCnt = halfmoveCnt
-	g.FullmoveCnt = fullmoveCnt
-
-	g.LegalMoves = movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights, g.EnPassantTarget)
 }
 
 // PushMove updates the game state by performing the specified move.
 // It is a caller responsibility to check if the specified move is legal.
 // Generates legal moves for the next turn.
-func (g *Game) PushMove(move movegen.Move) {
-	movedPiece := movegen.GetPieceFromSquare(g.Bitboards, 1<<move.From())
-	capturedPiece := movegen.GetPieceFromSquare(g.Bitboards, 1<<move.To())
+func (g *Game) PushMove(m types.Move) {
+	captured := g.Position.GetPieceFromSquare(1 << m.To())
 
-	movegen.MakeMove(&g.Bitboards, move)
+	g.Position.MakeMove(m)
 
 	// Memorize captured piece.
-	if capturedPiece != enum.PieceNone {
-		g.Captured = append(g.Captured, capturedPiece)
+	if captured != types.PieceNone {
+		g.Captured = append(g.Captured, captured)
 	}
-
-	// Reset the en passant target since the en passant capture is possible only for 1 move.
-	g.EnPassantTarget = 0
-
-	switch movedPiece {
-	case enum.PieceWPawn, enum.PieceBPawn:
-		// Set en passant target.
-		if g.ActiveColor == enum.ColorWhite && move.From()-move.To() == -16 {
-			g.EnPassantTarget = move.To() - 8
-		} else if g.ActiveColor == enum.ColorBlack && move.From()-move.To() == 16 {
-			g.EnPassantTarget = move.To() + 8
-		}
-	case enum.PieceWKing:
-		// Disable castling rights for white.
-		g.CastlingRights &= ^(enum.CastlingWhiteShort | enum.CastlingWhiteLong)
-	case enum.PieceBKing:
-		// Disable castling rights for black.
-		g.CastlingRights &= ^(enum.CastlingBlackShort | enum.CastlingBlackLong)
-	}
-
-	// Disable castling rights if the rooks aren't standing on their initial positions.
-	if g.Bitboards[enum.PieceWRook]&enum.A1 == 0 {
-		g.CastlingRights &= ^enum.CastlingWhiteLong
-	}
-	if g.Bitboards[enum.PieceWRook]&enum.H1 == 0 {
-		g.CastlingRights &= ^enum.CastlingWhiteShort
-	}
-	if g.Bitboards[enum.PieceBRook]&enum.A8 == 0 {
-		g.CastlingRights &= ^enum.CastlingBlackLong
-	}
-	if g.Bitboards[enum.PieceBRook]&enum.H8 == 0 {
-		g.CastlingRights &= ^enum.CastlingBlackShort
-	}
-
-	if capturedPiece != enum.PieceNone ||
-		movedPiece == enum.PieceWPawn || movedPiece == enum.PieceBPawn {
-		g.HalfmoveCnt = 0
-	} else {
-		g.HalfmoveCnt++
-	}
-
-	// Increment the full move counter after black moves.
-	if g.ActiveColor == enum.ColorBlack {
-		g.FullmoveCnt++
-	}
-
-	// Switch the active color.
-	g.ActiveColor ^= 1
 
 	// Store the completed move.
 	g.MoveStack = append(g.MoveStack, CompletedMove{
-		Move: move,
-		FenString: fen.Serialize(g.Bitboards, g.ActiveColor, g.CastlingRights,
-			g.EnPassantTarget, g.HalfmoveCnt, g.FullmoveCnt),
+		Move:      m,
+		FenString: fen.Serialize(g.Position),
 	})
 
 	// Generate legal moves for the next turn.
-	g.LegalMoves = movegen.GenLegalMoves(g.Bitboards, g.ActiveColor, g.CastlingRights,
-		g.EnPassantTarget)
+	movegen.GenLegalMoves(g.Position, &g.LegalMoves)
+
+	// Add repetition key to detect repetitions.
+	key := repetitionKey(g.Position, g.LegalMoves)
+	g.Repetitions[key]++
 }
 
 // PopMove pops the last completed move and restores the game state.
@@ -147,23 +80,25 @@ func (g *Game) PopMove() {
 		return
 	}
 
+	// Decrement repetition.
+	key := repetitionKey(g.Position, g.LegalMoves)
+	g.Repetitions[key]--
+
 	g.MoveStack = g.MoveStack[:len(g.MoveStack)-1]
 
 	if len(g.MoveStack) > 0 {
-		// bitboards, activeColor, enPassantTarget, halfmoveCnt, fullmoveCnt
-		b, a, c, e, h, f := fen.Parse(g.MoveStack[len(g.MoveStack)-1].FenString)
-		g.SetState(b, e, c, a, h, f)
-		movegen.GenLegalMoves(b, a, c, e)
+		pos := fen.Parse(g.MoveStack[len(g.MoveStack)-1].FenString)
+		g.Position = pos
+		movegen.GenLegalMoves(g.Position, &g.LegalMoves)
 	} else {
 		// Restore initial game state.
 		newGame := NewGame()
-		g.SetState(newGame.Bitboards, newGame.EnPassantTarget, newGame.CastlingRights,
-			newGame.ActiveColor, newGame.HalfmoveCnt, newGame.FullmoveCnt)
+		g.Position = newGame.Position
 		g.LegalMoves = newGame.LegalMoves
 	}
 }
 
-// IsThreefoldRepetition checks whether the last completed move has resulted in a threefold repetition.
+// IsThreefoldRepetition checks whether the game has reached a threefold repetition.
 //
 // A position is considered identical if all of the following conditions are met:
 //  1. Active colors are the same.
@@ -174,15 +109,12 @@ func (g *Game) PopMove() {
 // NOTE: Positions are identical even if the en passant target square differs,
 // provided that no en passant capture is possible.
 func (g *Game) IsThreefoldRepetition() bool {
-	currentPosKey := position{
-		g.LegalMoves,
-		g.Bitboards,
-		g.ActiveColor,
-		g.CastlingRights,
-	}.repetitionKey()
-	// Increment the repetition count.
-	g.Repetitions[currentPosKey]++
-	return g.Repetitions[currentPosKey] == 3
+	for _, reps := range g.Repetitions {
+		if reps >= 3 {
+			return true
+		}
+	}
+	return false
 }
 
 // IsInsufficientMaterial returns true if one of the following statements is true:
@@ -200,23 +132,21 @@ func (g *Game) IsInsufficientMaterial() bool {
 		return true
 	}
 
-	if material == 3 && g.Bitboards[enum.PieceWPawn] == 0 &&
-		g.Bitboards[enum.PieceBPawn] == 0 {
+	if material == 3 && g.Position.Bitboards[types.PieceWPawn] == 0 &&
+		g.Position.Bitboards[types.PieceBPawn] == 0 {
 		return true
 	}
 
 	if material == 6 {
-		whiteBishop := g.Bitboards[enum.PieceWBishop]
-		blackBishop := g.Bitboards[enum.PieceBBishop]
+		whiteBishop := g.Position.Bitboards[types.PieceWBishop]
+		blackBishop := g.Position.Bitboards[types.PieceBBishop]
 
-		if whiteBishop != 0 && blackBishop != 0 && ((whiteBishop&dark > 0 &&
-			blackBishop&dark > 0) || (whiteBishop&dark == 0 && blackBishop&dark == 0)) {
-			return true
-		} else if g.Bitboards[enum.PieceWKnight] != 0 && g.Bitboards[enum.PieceBKnight] != 0 {
-			return true
-		}
+		// TODO: clean up this mess
+		return (whiteBishop != 0 && blackBishop != 0 && ((whiteBishop&dark > 0 &&
+			blackBishop&dark > 0) || (whiteBishop&dark == 0 && blackBishop&dark == 0))) ||
+			(g.Position.Bitboards[types.PieceWKnight] != 0 &&
+				g.Position.Bitboards[types.PieceBKnight] != 0)
 	}
-
 	return false
 }
 
@@ -230,16 +160,16 @@ func (g *Game) IsInsufficientMaterial() bool {
 func (g *Game) IsCheckmate() bool {
 	// Check whether the king in check.
 	var occupancy uint64
-	for i := enum.PieceWPawn; i <= enum.PieceBKing; i++ {
-		occupancy |= g.Bitboards[i]
+	for i := types.PieceWPawn; i <= types.PieceBKing; i++ {
+		occupancy |= g.Position.Bitboards[i]
 	}
-	kingBB := g.Bitboards[enum.PieceWKing]
-	if g.ActiveColor == enum.ColorBlack {
-		kingBB = g.Bitboards[enum.PieceBKing]
+	kingBB := g.Position.Bitboards[types.PieceWKing]
+	if g.Position.ActiveColor == types.ColorBlack {
+		kingBB = g.Position.Bitboards[types.PieceBKing]
 	}
 
-	isKingInCheck := movegen.IsSquareUnderAttack(g.Bitboards, occupancy, bitutil.BitScan(kingBB),
-		1^g.ActiveColor)
+	isKingInCheck := movegen.IsSquareUnderAttack(g.Position.Bitboards, bitutil.BitScan(kingBB),
+		1^g.Position.ActiveColor)
 	return isKingInCheck && g.LegalMoves.LastMoveIndex == 0
 }
 
@@ -249,16 +179,16 @@ func (g *Game) IsCheckmate() bool {
 //
 // NOTE: It also updates the promotion piece flag in the legal move,
 // so the player can promote to the desired piece.
-func (g *Game) GetLegalMoveIndex(m movegen.Move) int {
+func (g *Game) GetLegalMoveIndex(m types.Move) int {
 	for i, legalMove := range g.LegalMoves.Moves {
 		if legalMove.From() == m.From() && legalMove.To() == m.To() {
-			if legalMove.Type() == enum.MovePromotion {
+			if legalMove.Type() == types.MovePromotion {
 				promo := m.PromotionPiece()
 				// Update promotion piece in case it is invalid.
-				if promo < enum.PromotionKnight || promo > enum.PromotionQueen {
-					promo = enum.PromotionQueen
+				if promo < types.PromotionKnight || promo > types.PromotionQueen {
+					promo = types.PromotionQueen
 				}
-				g.LegalMoves.Moves[i] = movegen.NewMove(m.To(), m.From(), promo, enum.MovePromotion)
+				g.LegalMoves.Moves[i] = types.NewPromotionMove(m.To(), m.From(), promo)
 			}
 			return i
 		}
@@ -271,23 +201,23 @@ func (g *Game) GetLegalMoveIndex(m movegen.Move) int {
 func (g *Game) calculateMaterial() int {
 	var material int
 
-	for pieceType := enum.PieceWPawn; pieceType < enum.PieceBKing; pieceType++ {
-		if pieceType == enum.PieceWKing {
+	for pieceType := types.PieceWPawn; pieceType < types.PieceBKing; pieceType++ {
+		if pieceType == types.PieceWKing {
 			continue
 		}
 
 		coefficient := 1
 		switch pieceType {
-		case enum.PieceWKnight, enum.PieceBKnight,
-			enum.PieceWBishop, enum.PieceBBishop:
+		case types.PieceWKnight, types.PieceBKnight,
+			types.PieceWBishop, types.PieceBBishop:
 			coefficient = 3
-		case enum.PieceWRook, enum.PieceBRook:
+		case types.PieceWRook, types.PieceBRook:
 			coefficient = 5
-		case enum.PieceWQueen, enum.PieceBQueen:
+		case types.PieceWQueen, types.PieceBQueen:
 			coefficient = 9
 		}
 
-		material += bitutil.CountBits(g.Bitboards[pieceType]) * coefficient
+		material += bitutil.CountBits(g.Position.Bitboards[pieceType]) * coefficient
 	}
 
 	return material

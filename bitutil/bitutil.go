@@ -17,18 +17,23 @@ var bitScanLookup = [64]int{
 	44, 24, 15, 8, 23, 7, 6, 5,
 }
 
-// BitScan returns the index of the Least Significant Bit (LSB) withing a bitboard.
+// BitScan returns the index of the Least Significant Bit (LSB) withing the bitboard.
 // bitboard&-bitboard gives the LSB which is then run through the hashing scheme to index a lookup.
 func BitScan(bitboard uint64) int { return bitScanLookup[bitboard&-bitboard*BITSCAN_MAGIC>>58] }
 
-// PopLSB pops the Least Significant Bit from a bitboard and returns its index.
+// PopLSB removes (pops) the least significant bit from the bitboard and returns its index.
+// If the bitboard is empty, it returns -1.
 func PopLSB(bitboard *uint64) int {
+	if *bitboard == 0 {
+		return -1
+	}
+
 	lsb := BitScan(*bitboard)
 	*bitboard &= *bitboard - 1
 	return lsb
 }
 
-// CountBits returns the number of bits set within a bitboard.
+// CountBits returns the number of bits set within the bitboard.
 func CountBits(bitboard uint64) int {
 	var cnt int
 	for bitboard > 0 {
