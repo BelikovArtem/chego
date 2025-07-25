@@ -25,7 +25,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/BelikovArtem/chego/enum"
+	"github.com/BelikovArtem/chego/types"
 	"github.com/BelikovArtem/chego/game"
 	"github.com/BelikovArtem/chego/movegen"
 )
@@ -35,14 +35,14 @@ func main() {
 	// start as possible, otherwise the move generation won't work.
 	movegen.InitAttackTables()
 
-	game := game.NewGame()
+	g := game.NewGame()
 	// Scholar's mate.
-	game.PushMove(movegen.NewMove(enum.SF3, enum.SF2, 0, enum.MoveNormal))
-	game.PushMove(movegen.NewMove(enum.SE5, enum.SE7, 0, enum.MoveNormal))
-	game.PushMove(movegen.NewMove(enum.SG4, enum.SG2, 0, enum.MoveNormal))
-	game.PushMove(movegen.NewMove(enum.SH4, enum.SD8, 0, enum.MoveNormal))
+	g.PushMove(types.NewMove(types.SF3, types.SF2, types.MoveNormal))
+	g.PushMove(types.NewMove(types.SE5, types.SE7, types.MoveNormal))
+	g.PushMove(types.NewMove(types.SG4, types.SG2, types.MoveNormal))
+	g.PushMove(types.NewMove(types.SH4, types.SD8, types.MoveNormal))
 
-	fmt.Printf("Is checkmate: %t\n", game.IsCheckmate()) // Prints "Is checkmate: true"
+	fmt.Printf("Is checkmate: %t\n", g.IsCheckmate()) // Prints "Is checkmate: true"
 }
 
 ```
