@@ -158,18 +158,6 @@ func TestBitScan(t *testing.T) {
 	}
 }
 
-func TestGenMagicNumber(t *testing.T) {
-	t.Logf("\n\n")
-	for square := 0; square < 64; square++ {
-		t.Logf("%x,\n", genMagicNumber(square, true))
-	}
-
-	t.Logf("\n\n")
-	for square := 0; square < 64; square++ {
-		t.Logf("%x,\n", genMagicNumber(square, false))
-	}
-}
-
 func TestLookupBishopAttacks(t *testing.T) {
 	var occupancy uint64 = types.F2 | types.B3 | types.F4 | types.D5 | types.G7
 	for square := uint64(1); square != 0; square <<= 1 {
@@ -597,12 +585,6 @@ func BenchmarkLookupRookAttacks(b *testing.B) {
 func BenchmarkLookupQueenAttacks(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		lookupQueenAttacks(35, 0x0)
-	}
-}
-
-func BenchmarkGenMagicNumber(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		genMagicNumber(23, false)
 	}
 }
 

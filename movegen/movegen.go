@@ -2,8 +2,6 @@
 package movegen
 
 import (
-	"math/rand/v2"
-
 	"github.com/BelikovArtem/chego/bitutil"
 	"github.com/BelikovArtem/chego/types"
 )
@@ -409,15 +407,8 @@ func genNormalPieceMoves(piece int, pieceType types.Piece, allies, occupancy uin
 // genKingMoves appends pseudo-legal moves (quiet moves and captures) for the king on
 // the given position to the specified move list.
 func genKingMoves(p types.Position, king int, l *types.MoveList) {
-	ec := 1 ^ p.ActiveColor
-	var enemies, occupancy uint64
-	for i := types.PieceWPawn; i <= types.PieceBKing; i++ {
-		occupancy |= p.Bitboards[i]
-	}
-	for i := types.PieceWPawn; i <= types.PieceWKing; i++ {
-		enemies |= p.Bitboards[i+ec*6]
-	}
-
+	enemies := p.Bitboards[12+(1^p.ActiveColor)]
+	occupancy := p.Bitboards[14]
 	// Lookup normal moves.
 	attacks := kingAttacks[king]
 	for attacks > 0 {
@@ -485,10 +476,6 @@ func genAttacks(bitboards [15]uint64, c types.Color) uint64 {
 
 	return attacked
 }
-
-// pseudoRandUint64FewBits returns a pseudo-random uint64 with a few set bits.
-// It is used only for a magic number generation.
-func pseudoRandUint64FewBits() uint64 { return rand.Uint64() & rand.Uint64() & rand.Uint64() }
 
 // genPawnAttacks returns a bitboard of squares attacked by a pawn.
 func genPawnAttacks(pawn uint64, color types.Color) uint64 {
@@ -674,63 +661,6 @@ func genOccupancy(key, relevantBitCount int, relevantOccupancy uint64) uint64 {
 	}
 
 	return occupancy
-}
-
-// genMagicNumber returns a magic number used to hash sliding piece's possible moves.
-// THERE IS NO NEED TO CALL THIS FUNCTION! The magic number tables are predifined.
-// May panic if the random number was not generated correctly.
-// See https://www.chessprogramming.org/Looking_for_Magics
-func genMagicNumber(square int, isBishop bool) uint64 {
-	var occupancies, attacks [4096]uint64
-
-	var attack uint64
-	var relevantBitCount int
-	if isBishop {
-		attack = bishopRelevantOccupancy[square]
-		relevantBitCount = bishopRelevantOccupancyBitCount[square]
-	} else {
-		attack = rookRelevantOccupancy[square]
-		relevantBitCount = rookRelevantOccupancyBitCount[square]
-	}
-
-	for i := 0; i < 1<<relevantBitCount; i++ {
-		occupancies[i] = genOccupancy(i, relevantBitCount, attack)
-
-		if isBishop {
-			attacks[i] = genBishopAttacks(1<<square, occupancies[i])
-		} else {
-			attacks[i] = genRookAttacks(1<<square, occupancies[i])
-		}
-	}
-
-	for i := 0; i < 100000000; i++ {
-		magicNumber := pseudoRandUint64FewBits()
-
-		if bitutil.CountBits(attack*magicNumber&0xFF00000000000000) < 6 {
-			continue
-		}
-
-		var taken [4096]uint64
-		var j, fail int
-
-		for ; j < 1<<relevantBitCount; j++ {
-			// Form a magic hash key.
-			magicKey := int(occupancies[j] * magicNumber >> (64 - relevantBitCount))
-
-			if taken[magicKey] == 0 {
-				taken[magicKey] = attacks[j]
-			} else if taken[magicKey] != attacks[j] {
-				fail = 1
-				break
-			}
-		}
-
-		if fail == 0 {
-			return magicNumber
-		}
-	}
-
-	panic("failed to generate magic number")
 }
 
 // lookupBishopAttacks returns a bitboard of squares attacked by a bishop.
