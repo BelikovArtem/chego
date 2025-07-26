@@ -10,31 +10,33 @@ func TestToBitboardArray(t *testing.T) {
 	testcases := []struct {
 		name     string
 		fenStr   string
-		expected [12]uint64
+		expected [15]uint64
 	}{
 		{
 			"Initial position",
 			"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
-			[12]uint64{
+			[15]uint64{
 				0xFF00, 0x42, 0x24, 0x81, 0x8, 0x10,
 				0xFF000000000000, 0x4200000000000000, 0x2400000000000000,
 				0x8100000000000000, 0x800000000000000, 0x1000000000000000,
+				0xFFFF, 0xFFFF000000000000, 0xFFFF00000000FFFF,
 			},
 		},
 		{
 			"Two rooks, two pawns",
 			"8/4p3/1PR5/8/4R3/8/4p3/8",
-			[12]uint64{
+			[15]uint64{
 				0x20000000000, 0x0, 0x0, 0x40010000000, 0x0, 0x0,
 				0x10000000001000, 0x0, 0x0, 0x0, 0x0, 0x0,
+				0x60010000000, 0x10000000001000, 0x10060010001000,
 			},
 		},
 	}
 
 	for _, tc := range testcases {
-		for pieceType, bitboard := range ToBitboardArray(tc.fenStr) {
-			if tc.expected[pieceType] != bitboard {
-				t.Fatalf("%s\nexpected:%x\ngot:%x", tc.name, tc.expected[pieceType], bitboard)
+		for piece, bitboard := range ToBitboardArray(tc.fenStr) {
+			if tc.expected[piece] != bitboard {
+				t.Fatalf("%s\nexpected:%x\ngot:%x", tc.name, tc.expected[piece], bitboard)
 			}
 		}
 	}
@@ -43,12 +45,12 @@ func TestToBitboardArray(t *testing.T) {
 func TestFromBitboardArray(t *testing.T) {
 	testcases := []struct {
 		name      string
-		bitboards [12]uint64
+		bitboards [15]uint64
 		expected  string
 	}{
 		{
 			"Initial position",
-			[12]uint64{
+			[15]uint64{
 				0xFF00, 0x42, 0x24, 0x81, 0x8, 0x10,
 				0xFF000000000000, 0x4200000000000000, 0x2400000000000000,
 				0x8100000000000000, 0x800000000000000, 0x1000000000000000,
@@ -57,7 +59,7 @@ func TestFromBitboardArray(t *testing.T) {
 		},
 		{
 			"Two rooks, two pawns",
-			[12]uint64{
+			[15]uint64{
 				0x20000000000, 0x0, 0x0, 0x40010000000, 0x0, 0x0,
 				0x10000000001000, 0x0, 0x0, 0x0, 0x0, 0x0,
 			},
@@ -157,7 +159,7 @@ func BenchmarkToBitboardArray(b *testing.B) {
 
 func BenchmarkFromBitboardArray(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		FromBitboardArray([12]uint64{
+		FromBitboardArray([15]uint64{
 			0xFF00, 0x42, 0x24, 0x81, 0x8, 0x10,
 			0xFF000000000000, 0x4200000000000000, 0x2400000000000000,
 			0x8100000000000000, 0x800000000000000, 0x1000000000000000,
@@ -174,15 +176,13 @@ func BenchmarkParse(b *testing.B) {
 func BenchmarkSerialize(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		Serialize(types.Position{
-			Bitboards: [12]uint64{
+			Bitboards: [15]uint64{
 				0xFF00, 0x42, 0x24, 0x81, 0x8, 0x10,
 				0xFF000000000000, 0x4200000000000000, 0x2400000000000000,
 				0x8100000000000000, 0x800000000000000, 0x1000000000000000,
 			},
 			ActiveColor:    types.ColorWhite,
 			CastlingRights: 0xF,
-			EPTarget:       0,
-			HalfmoveCnt:    0,
 			FullmoveCnt:    1,
 		})
 	}

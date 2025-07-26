@@ -221,7 +221,7 @@ func InitAttackTables() {
 	initRookRelevantOccupancy()
 
 	for square := 0; square < 64; square++ {
-		var bb uint64 = 1 << square
+		bb := uint64(1 << square)
 
 		pawnAttacks[types.ColorWhite][square] = genPawnAttacks(bb, types.ColorWhite)
 		pawnAttacks[types.ColorBlack][square] = genPawnAttacks(bb, types.ColorBlack)
@@ -252,11 +252,8 @@ func InitAttackTables() {
 
 // IsSquareUnderAttack checks whether the specified square is attacked
 // by pieces of the specified color in the given position using attack tables.
-func IsSquareUnderAttack(bitboards [12]uint64, square int, c types.Color) bool {
-	var occupancy uint64
-	for i := types.PieceWPawn; i <= types.PieceBKing; i++ {
-		occupancy |= bitboards[i]
-	}
+func IsSquareUnderAttack(bitboards [15]uint64, square int, c types.Color) bool {
+	occupancy := bitboards[14]
 
 	offs := 6 * c
 	// If attacked by pawns.
@@ -284,31 +281,38 @@ func GenLegalMoves(p types.Position, l *types.MoveList) {
 
 	genPseudoLegalMoves(p, &pseudoLegal)
 
+	c := p.ActiveColor
+	cOff := 6 * p.ActiveColor
+
+	// Memorize board state.
+	var bitboards [15]uint64
+	ep := p.EPTarget
+	cr := p.CastlingRights
+	copy(bitboards[:], p.Bitboards[:])
+
 	for i := 0; i < int(pseudoLegal.LastMoveIndex); i++ {
-		mock := p
+		m := pseudoLegal.Moves[i]
 
-		move := pseudoLegal.Moves[i]
-
-		mock.MakeMove(move)
-
-		king := bitutil.BitScan(mock.Bitboards[types.PieceWKing+6*p.ActiveColor])
+		p.MakeMove(m)
 
 		// If the allied king is not in check, the move is legal.
-		if !IsSquareUnderAttack(mock.Bitboards, king, 1^p.ActiveColor) {
-			l.Push(move)
+		king := bitutil.BitScan(p.Bitboards[types.PieceWKing+cOff])
+		if !IsSquareUnderAttack(p.Bitboards, king, 1^c) {
+			l.Push(pseudoLegal.Moves[i])
 		}
+
+		// Restore board state.
+		p.EPTarget = ep
+		p.CastlingRights = cr
+		copy(p.Bitboards[:], bitboards[:])
 	}
 }
 
 func genPseudoLegalMoves(p types.Position, l *types.MoveList) {
-	var allies, enemies uint64
-	cOff, ecOff := 6*p.ActiveColor, 6*(1^p.ActiveColor)
-
-	for i := types.PieceWPawn; i <= types.PieceWKing; i++ {
-		allies |= p.Bitboards[i+cOff]
-		enemies |= p.Bitboards[i+ecOff]
-	}
-	occupancy := allies | enemies
+	allies := p.Bitboards[12+p.ActiveColor]
+	enemies := p.Bitboards[12+(1^p.ActiveColor)]
+	occupancy := p.Bitboards[14]
+	cOff := 6 * p.ActiveColor
 
 	pawns := p.Bitboards[types.PieceWPawn+cOff]
 	for pawns > 0 {
@@ -457,13 +461,10 @@ func genKingMoves(p types.Position, king int, l *types.MoveList) {
 }
 
 // genAttacks generates a bitboard of squares attacked by a pieces of the specified color.
-func genAttacks(bitboards [12]uint64, c types.Color) uint64 {
-	var occupancy, attacked uint64
-	for i := types.PieceWPawn; i <= types.PieceBKing; i++ {
-		occupancy |= bitboards[i]
-	}
+func genAttacks(bitboards [15]uint64, c types.Color) uint64 {
+	occupancy := bitboards[14]
 
-	attacked |= genPawnAttacks(bitboards[types.PieceWPawn+6*c], c)
+	attacked := genPawnAttacks(bitboards[types.PieceWPawn+6*c], c)
 	attacked |= genKnightAttacks(bitboards[types.PieceWKnight+6*c])
 	attacked |= genKingAttacks(bitboards[types.PieceWKing+6*c])
 

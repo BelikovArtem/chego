@@ -63,7 +63,7 @@ func Position(p types.Position) string {
 
 			var symbol rune = '.'
 
-			for i := 0; i < 12; i++ {
+			for i := types.PieceWPawn; i <= types.PieceBKing; i++ {
 				if square&p.Bitboards[i] != 0 {
 					symbol = pieceSymbols[i]
 					break

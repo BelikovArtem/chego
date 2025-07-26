@@ -5,64 +5,12 @@ package fen
 import (
 	"strconv"
 
+	"github.com/BelikovArtem/chego/bitutil"
 	"github.com/BelikovArtem/chego/types"
 
-	// bits is used to speed up the iteration over bitboards.
-	"math/bits"
 	// strings is used to reduce the number of memory allocations during strings concatenation.
 	"strings"
 )
-
-// ToBitboardArray converts the first part of a Forsyth-Edwards Notation string into
-// an array of bitboards.
-func ToBitboardArray(piecePlacementData string) [12]uint64 {
-	var bitboards [12]uint64
-	squareIndex := 56
-
-	// Piece placement data describes each rank beginning from the eigth.
-	for i := 0; i < len(piecePlacementData); i++ {
-		char := piecePlacementData[i]
-
-		if char == '/' { // Rank separator.
-			squareIndex -= 16
-		} else if char >= '1' && char <= '8' { // Number of consecutive empty squares.
-			// Convert byte to the integer it represents.
-			squareIndex += int(char - '0')
-		} else { // There is piece on a square.
-			var pieceType types.Piece // types.PieceWPawn by default.
-			// Manual switch construction is ~3x faster than map approach.
-			switch char {
-			case 'N':
-				pieceType = types.PieceWKnight
-			case 'B':
-				pieceType = types.PieceWBishop
-			case 'R':
-				pieceType = types.PieceWRook
-			case 'Q':
-				pieceType = types.PieceWQueen
-			case 'K':
-				pieceType = types.PieceWKing
-			case 'p':
-				pieceType = types.PieceBPawn
-			case 'n':
-				pieceType = types.PieceBKnight
-			case 'b':
-				pieceType = types.PieceBBishop
-			case 'r':
-				pieceType = types.PieceBRook
-			case 'q':
-				pieceType = types.PieceBQueen
-			case 'k':
-				pieceType = types.PieceBKing
-			}
-			// Set the bit on the bitboard to place a piece.
-			bitboards[pieceType] |= 1 << squareIndex
-			squareIndex++
-		}
-	}
-
-	return bitboards
-}
 
 // pieceSymbols is used in FromBitboardArray function.
 var pieceSymbols = [12]byte{
@@ -70,84 +18,7 @@ var pieceSymbols = [12]byte{
 	'p', 'n', 'b', 'r', 'q', 'k',
 }
 
-// FromBitboardArray converts the array of bitboards into the first part
-// of Forsyth-Edwards Notation.
-func FromBitboardArray(bitboards [12]uint64) string {
-	// Used to add characters to a string without extra mem allocs.
-	var piecePlacementData strings.Builder
-	piecePlacementData.Grow(20)
-
-	var board [8][8]byte
-
-	for pieceType, bitboard := range bitboards {
-		// Go through all pieces on a bitboard.
-		for ; bitboard > 0; bitboard &= bitboard - 1 {
-			squareIndex := bits.TrailingZeros64(bitboard)
-			// Add piece on board.
-			board[squareIndex/8][squareIndex%8] = pieceSymbols[pieceType]
-		}
-	}
-
-	var numOfEmptySquares byte
-
-	for rank := 7; rank >= 0; rank-- {
-		for file := 0; file < 8; file++ {
-			char := board[rank][file]
-
-			if char == 0 { // Empty square.
-				numOfEmptySquares++
-			} else { // Piece on square.
-				if numOfEmptySquares > 0 {
-					piecePlacementData.WriteByte('0' + numOfEmptySquares)
-					numOfEmptySquares = 0
-				}
-				piecePlacementData.WriteByte(char)
-			}
-
-			// To add rank separators.
-			squareIndex := 8*rank + file
-			if (squareIndex+1)%8 == 0 {
-				if numOfEmptySquares > 0 {
-					piecePlacementData.WriteByte('0' + numOfEmptySquares)
-					numOfEmptySquares = 0
-				}
-				// Do not add separator in the end of the string.
-				if squareIndex != 7 {
-					piecePlacementData.WriteByte('/')
-				}
-			}
-		}
-	}
-
-	return piecePlacementData.String()
-}
-
-// squareFromString is used to parse en passant target square.
-// Handles '-' as A1 square.
-func squareFromString(str string) int {
-	var square int
-	switch str[0] {
-	case 'b':
-		square = 1
-	case 'c':
-		square = 2
-	case 'd':
-		square = 3
-	case 'e':
-		square = 4
-	case 'f':
-		square = 5
-	case 'g':
-		square = 6
-	case 'h':
-		square = 7
-	case '-':
-		return 0
-	}
-	return square + (int(str[1]-'0')-1)*8
-}
-
-// Parse parses the given FEN string and returns the values of its fields.
+// Parse parses the given FEN string into position.
 func Parse(fenStr string) (p types.Position) {
 	var fields [6]string
 	// Separate FEN fields.
@@ -249,4 +120,140 @@ func Serialize(p types.Position) string {
 	fenStr.WriteString(strconv.Itoa(p.FullmoveCnt))
 
 	return fenStr.String()
+}
+
+// ToBitboardArray converts the first part of a Forsyth-Edwards Notation string into
+// an array of bitboards.
+func ToBitboardArray(piecePlacement string) [15]uint64 {
+	var bitboards [15]uint64
+	square := 56
+
+	// Piece placement data describes each rank beginning from the eigth.
+	for i := 0; i < len(piecePlacement); i++ {
+		char := piecePlacement[i]
+
+		if char == '/' { // Rank separator.
+			square -= 16
+		} else if char >= '1' && char <= '8' { // Number of consecutive empty squares.
+			// Convert byte to the integer it represents.
+			square += int(char - '0')
+		} else { // There is piece on a square.
+			var piece types.Piece // types.PieceWPawn by default.
+			// Manual switch construction is ~3x faster than map approach.
+			switch char {
+			case 'N':
+				piece = types.PieceWKnight
+			case 'B':
+				piece = types.PieceWBishop
+			case 'R':
+				piece = types.PieceWRook
+			case 'Q':
+				piece = types.PieceWQueen
+			case 'K':
+				piece = types.PieceWKing
+			case 'p':
+				piece = types.PieceBPawn
+			case 'n':
+				piece = types.PieceBKnight
+			case 'b':
+				piece = types.PieceBBishop
+			case 'r':
+				piece = types.PieceBRook
+			case 'q':
+				piece = types.PieceBQueen
+			case 'k':
+				piece = types.PieceBKing
+			}
+			// Set the bit on the bitboards to place a piece.
+			bb := uint64(1 << square)
+
+			bitboards[piece] |= bb
+			if piece <= types.PieceWKing {
+				bitboards[12] |= bb
+			} else {
+				bitboards[13] |= bb
+			}
+			bitboards[14] |= bb
+
+			square++
+		}
+	}
+
+	return bitboards
+}
+
+// FromBitboardArray converts the array of bitboards into the first part
+// of Forsyth-Edwards Notation.
+func FromBitboardArray(bitboards [15]uint64) string {
+	// Used to add characters to a string without extra mem allocs.
+	var piecePlacement strings.Builder
+	piecePlacement.Grow(20)
+
+	var board [64]byte
+
+	for i := 0; i <= types.PieceBKing; i++ {
+		// Go through all pieces on a bitboard.
+		for bitboards[i] > 0 {
+			square := bitutil.PopLSB(&bitboards[i])
+			// Add piece on board.
+			board[square] = pieceSymbols[i]
+		}
+	}
+
+	emptySquares := byte(0)
+	for rank := 7; rank >= 0; rank-- {
+		for file := 0; file < 8; file++ {
+			square := 8*rank + file
+			char := board[square]
+
+			if char == 0 { // Empty square.
+				emptySquares++
+			} else { // Piece on square.
+				if emptySquares > 0 {
+					piecePlacement.WriteByte('0' + emptySquares)
+					emptySquares = 0
+				}
+				piecePlacement.WriteByte(char)
+			}
+
+			// To add rank separators.
+			if (square+1)%8 == 0 {
+				if emptySquares > 0 {
+					piecePlacement.WriteByte('0' + emptySquares)
+					emptySquares = 0
+				}
+				// Do not add separator in the end of the string.
+				if square != 7 {
+					piecePlacement.WriteByte('/')
+				}
+			}
+		}
+	}
+
+	return piecePlacement.String()
+}
+
+// squareFromString is used to parse en passant target square.
+// Handles '-' as A1 square.
+func squareFromString(str string) int {
+	var square int
+	switch str[0] {
+	case 'b':
+		square = 1
+	case 'c':
+		square = 2
+	case 'd':
+		square = 3
+	case 'e':
+		square = 4
+	case 'f':
+		square = 5
+	case 'g':
+		square = 6
+	case 'h':
+		square = 7
+	case '-':
+		return 0
+	}
+	return square + (int(str[1]-'0')-1)*8
 }

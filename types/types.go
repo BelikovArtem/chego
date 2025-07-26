@@ -26,8 +26,7 @@ func (m Move) Type() MoveType                { return MoveType(m>>14) & 0x3 }
 
 // Position represents a chessboard state that can be converted to or parsed from a FEN string.
 type Position struct {
-	// TODO: include all white pieces, all black pieces and occupancy.
-	Bitboards      [12]uint64
+	Bitboards      [15]uint64
 	ActiveColor    Color
 	CastlingRights CastlingRights
 	EPTarget       int
@@ -52,6 +51,7 @@ func (p *Position) MakeMove(m Move) {
 		if capturedPiece != PieceNone {
 			// Remove the captured piece from the board.
 			p.Bitboards[capturedPiece] ^= to
+			p.Bitboards[12+(1^p.ActiveColor)] ^= to
 			// Reset the halfmove counter after captures.
 			p.HalfmoveCnt = 0
 		} else {
@@ -67,6 +67,7 @@ func (p *Position) MakeMove(m Move) {
 			p.Bitboards[PieceWPawn] ^= to << 8
 		}
 		p.Bitboards[movedPiece] ^= fromTo
+		p.Bitboards[12+(1^p.ActiveColor)] ^= to
 
 	case MoveCastling:
 		switch to {
@@ -79,10 +80,11 @@ func (p *Position) MakeMove(m Move) {
 
 	case MovePromotion:
 		// If the move is capture-promotion.
-		capturedPieceType := p.GetPieceFromSquare(to)
-		if capturedPieceType != PieceNone {
+		capturedPiece := p.GetPieceFromSquare(to)
+		if capturedPiece != PieceNone {
 			// Remove the captured piece from the board.
-			p.Bitboards[capturedPieceType] ^= to
+			p.Bitboards[capturedPiece] ^= to
+			p.Bitboards[12+(1^p.ActiveColor)] ^= to
 		}
 
 		// Remove a promoted pawn from the board.
@@ -94,6 +96,10 @@ func (p *Position) MakeMove(m Move) {
 			p.Bitboards[m.PromotionPiece()+7] ^= to
 		}
 	}
+	// Update allies bitboard.
+	p.Bitboards[12+p.ActiveColor] ^= fromTo
+	// Update occupancy bitboard.
+	p.Bitboards[14] ^= fromTo
 
 	// Reset the en passant target since the en passant capture is possible only for 1 move.
 	p.EPTarget = 0
