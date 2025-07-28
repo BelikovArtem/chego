@@ -1,5 +1,6 @@
-// Package types contains declarations of custom types and predefined constants.
-package types
+// types.go contains declarations of custom types and predefined constants.
+
+package chego
 
 // Move represents a chess move, encoded as a 16 bit unsigned integer:
 //
@@ -24,144 +25,6 @@ func (m Move) From() int                     { return int(m>>6) & 0x3F }
 func (m Move) PromotionPiece() PromotionFlag { return PromotionFlag(m>>12) & 0x3 }
 func (m Move) Type() MoveType                { return MoveType(m>>14) & 0x3 }
 
-// Position represents a chessboard state that can be converted to or parsed from a FEN string.
-type Position struct {
-	Bitboards      [15]uint64
-	ActiveColor    Color
-	CastlingRights CastlingRights
-	EPTarget       int
-	HalfmoveCnt    int
-	FullmoveCnt    int
-}
-
-// MakeMove modifies the position by applying the specified move.
-// It’s the caller’s responsibility to ensure the move is legal.
-//
-// Not only is the piece placement updated, but also the entire position,
-// including castling rights, en passant target, move counters, and active color.
-func (p *Position) MakeMove(m Move) {
-	var from, to uint64 = 1 << m.From(), 1 << m.To()
-	fromTo := from ^ to
-	movedPiece := p.GetPieceFromSquare(from)
-
-	switch m.Type() {
-	case MoveNormal:
-		// If the move is capture.
-		capturedPiece := p.GetPieceFromSquare(to)
-		if capturedPiece != PieceNone {
-			// Remove the captured piece from the board.
-			p.Bitboards[capturedPiece] ^= to
-			p.Bitboards[12+(1^p.ActiveColor)] ^= to
-			// Reset the halfmove counter after captures.
-			p.HalfmoveCnt = 0
-		} else {
-			p.HalfmoveCnt++
-		}
-		p.Bitboards[movedPiece] ^= fromTo
-
-	case MoveEnPassant:
-		// Remove the captured pawn from the board.
-		if movedPiece == PieceWPawn {
-			p.Bitboards[PieceBPawn] ^= to >> 8
-		} else {
-			p.Bitboards[PieceWPawn] ^= to << 8
-		}
-		p.Bitboards[movedPiece] ^= fromTo
-		p.Bitboards[12+(1^p.ActiveColor)] ^= to
-
-	case MoveCastling:
-		switch to {
-		case G1, G8: // O-O
-			p.Bitboards[movedPiece-2] ^= (to << 1) ^ (to >> 1)
-		case C1, C8: // O-O-O
-			p.Bitboards[movedPiece-2] ^= (to >> 2) ^ (to << 1)
-		}
-		p.Bitboards[movedPiece] ^= fromTo
-
-	case MovePromotion:
-		// If the move is capture-promotion.
-		capturedPiece := p.GetPieceFromSquare(to)
-		if capturedPiece != PieceNone {
-			// Remove the captured piece from the board.
-			p.Bitboards[capturedPiece] ^= to
-			p.Bitboards[12+(1^p.ActiveColor)] ^= to
-		}
-
-		// Remove a promoted pawn from the board.
-		p.Bitboards[movedPiece] ^= from
-		// Place a new piece.
-		if movedPiece == PieceWPawn {
-			p.Bitboards[m.PromotionPiece()+1] ^= to
-		} else {
-			p.Bitboards[m.PromotionPiece()+7] ^= to
-		}
-	}
-	// Update allies bitboard.
-	p.Bitboards[12+p.ActiveColor] ^= fromTo
-	// Update occupancy bitboard.
-	p.Bitboards[14] ^= fromTo
-
-	// Reset the en passant target since the en passant capture is possible only for 1 move.
-	p.EPTarget = 0
-
-	switch movedPiece {
-	// Set en passant targets in case of pawn double pushes.
-	case PieceWPawn, PieceBPawn:
-		if m.From()-m.To() == -16 {
-			p.EPTarget = m.To() - 8
-		} else if m.From()-m.To() == 16 {
-			p.EPTarget = m.To() + 8
-		}
-		// Reset the halfmove counter after pawn moves.
-		p.HalfmoveCnt = 0
-
-	// Disable white castling rigts.
-	case PieceWKing:
-		p.CastlingRights &= ^(CastlingWhiteShort | CastlingWhiteLong)
-
-	// Disable black castling rigts.
-	case PieceBKing:
-		p.CastlingRights &= ^(CastlingBlackShort | CastlingBlackLong)
-
-	// Disable castling rights if the white rooks aren't standing on their initial positions.
-	case PieceWRook:
-		if p.Bitboards[PieceWRook]&A1 == 0 {
-			p.CastlingRights &= ^CastlingWhiteLong
-		}
-		if p.Bitboards[PieceWRook]&H1 == 0 {
-			p.CastlingRights &= ^CastlingWhiteShort
-		}
-
-	// Disable castling rights if the black rooks aren't standing on their initial positions.
-	case PieceBRook:
-		if p.Bitboards[PieceBRook]&A8 == 0 {
-			p.CastlingRights &= ^CastlingBlackLong
-		}
-		if p.Bitboards[PieceBRook]&H8 == 0 {
-			p.CastlingRights &= ^CastlingBlackShort
-		}
-	}
-
-	// Increment the full move counter after black moves.
-	if p.ActiveColor == ColorBlack {
-		p.FullmoveCnt++
-	}
-
-	// Switch the active color.
-	p.ActiveColor ^= 1
-}
-
-// GetPieceFromSquare returns the type of the piece that stands on the specified square.
-// Returns [PieceNone] if there is no piece on the square.
-func (p *Position) GetPieceFromSquare(square uint64) Piece {
-	for piece, bitboard := range p.Bitboards {
-		if square&bitboard != 0 {
-			return piece
-		}
-	}
-	return PieceNone
-}
-
 // MoveList is used to store moves. The main idea behind it is to preallocate
 // an array with enough capacity to store all possible moves and avoid dynamic
 // memory allocations.
@@ -178,6 +41,25 @@ func (l *MoveList) Push(m Move) {
 	l.Moves[l.LastMoveIndex] = m
 	l.LastMoveIndex++
 }
+
+var (
+	// PieceSymbols is used in fen, format, and uci packages.
+	PieceSymbols = [12]byte{
+		'P', 'N', 'B', 'R', 'Q', 'K',
+		'p', 'n', 'b', 'r', 'q', 'k',
+	}
+	// Square2String is used in format and uci packages.
+	Square2String = [64]string{
+		"a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
+		"a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
+		"a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
+		"a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
+		"a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
+		"a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
+		"a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
+		"a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
+	}
+)
 
 // Piece is an allias type to avoid bothersome conversion between int and Piece.
 type Piece = int

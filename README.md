@@ -1,6 +1,6 @@
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
-Chego implements chess board state management and legal move generation.
+Chego implements chessboard state management and legal move generation.
 
 Piece positions are stored as bitboards.
 
@@ -25,26 +25,23 @@ package main
 import (
 	"fmt"
 
-	"github.com/BelikovArtem/chego/types"
-	"github.com/BelikovArtem/chego/game"
-	"github.com/BelikovArtem/chego/movegen"
+	"github.com/BelikovArtem/chego"
 )
 
 func main() {
 	// It is important to call InitAttackTables as close to the program
 	// start as possible, otherwise the move generation won't work.
-	movegen.InitAttackTables()
+	chego.InitAttackTables()
 
-	g := game.NewGame()
+	g := chego.NewGame()
 	// Scholar's mate.
-	g.PushMove(types.NewMove(types.SF3, types.SF2, types.MoveNormal))
-	g.PushMove(types.NewMove(types.SE5, types.SE7, types.MoveNormal))
-	g.PushMove(types.NewMove(types.SG4, types.SG2, types.MoveNormal))
-	g.PushMove(types.NewMove(types.SH4, types.SD8, types.MoveNormal))
-
-	fmt.Printf("Is checkmate: %t\n", g.IsCheckmate()) // Prints "Is checkmate: true"
+	g.PushMove(chego.NewMove(chego.SF3, chego.SF2, chego.MoveNormal))
+	g.PushMove(chego.NewMove(chego.SE5, chego.SE7, chego.MoveNormal))
+	g.PushMove(chego.NewMove(chego.SG4, chego.SG2, chego.MoveNormal))
+	g.PushMove(chego.NewMove(chego.SH4, chego.SD8, chego.MoveNormal))
+ 	// Prints "Is checkmate: true"
+	fmt.Printf("Is checkmate: %t\n", g.IsCheckmate())
 }
-
 ```
 
 ## Local installation
@@ -60,20 +57,15 @@ cd chego
 
 ## Tests and benchmarks
 
-To run tests and benchmarks, run this commands in the chego folder:  
+To execute the performance test, run this command in the chego folder:  
 
 ```
-go test ./...
-go test ./... -bench=. -benchmem
+go run ./internal/perft.go -depth {IntValue}
 ```	
-
-Here are the benchmark results recieved on Intel Core i7-10750H CPU:
-
-![Benchmark results](./doc/benchmarks.png)
 
 ## License
 
 Copyright (c) 2025 Artem Bielikov
 
-This project is licensed under the Mozilla Public License 2.0.  
+This project is available under the Mozilla Public License, v. 2.0.  
 See the [LICENSE](LICENSE) file for details.

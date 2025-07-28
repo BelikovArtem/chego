@@ -1,25 +1,18 @@
-// Package fen implements conversions between the Forsyth-Edwards Notation strings and bitboard arrays.
-// fen expects that the passed FEN and bitboard arrays are always valid, and may panic if they are not.
-package fen
+// fen.go implements conversions between Forsyth-Edwards Notation (FEN) strings
+// and bitboard arrays. Functions in this file expect the passed FEN strings and
+// bitboard arrays to be valid, and may panic if they are not.
+
+package chego
 
 import (
 	"strconv"
-
-	"github.com/BelikovArtem/chego/bitutil"
-	"github.com/BelikovArtem/chego/types"
 
 	// strings is used to reduce the number of memory allocations during strings concatenation.
 	"strings"
 )
 
-// pieceSymbols is used in FromBitboardArray function.
-var pieceSymbols = [12]byte{
-	'P', 'N', 'B', 'R', 'Q', 'K',
-	'p', 'n', 'b', 'r', 'q', 'k',
-}
-
-// Parse parses the given FEN string into position.
-func Parse(fenStr string) (p types.Position) {
+// ParseFEN parses the given FEN string into a [Position].
+func ParseFEN(fenStr string) (p Position) {
 	var fields [6]string
 	// Separate FEN fields.
 	var j, prev int
@@ -36,19 +29,19 @@ func Parse(fenStr string) (p types.Position) {
 	p.Bitboards = ToBitboardArray(fields[0])
 	// Parse active color.
 	if fields[1] == "b" {
-		p.ActiveColor = types.ColorBlack
+		p.ActiveColor = ColorBlack
 	}
 	// Parse castling rights.
 	for i := 0; i < len(fields[2]); i++ {
 		switch fields[2][i] {
 		case 'K':
-			p.CastlingRights |= types.CastlingWhiteShort
+			p.CastlingRights |= CastlingWhiteShort
 		case 'Q':
-			p.CastlingRights |= types.CastlingWhiteLong
+			p.CastlingRights |= CastlingWhiteLong
 		case 'k':
-			p.CastlingRights |= types.CastlingBlackShort
+			p.CastlingRights |= CastlingBlackShort
 		case 'q':
-			p.CastlingRights |= types.CastlingBlackLong
+			p.CastlingRights |= CastlingBlackLong
 		}
 	}
 	// Parse en passant target square.
@@ -68,35 +61,35 @@ func Parse(fenStr string) (p types.Position) {
 	return p
 }
 
-// Serialize serializes the specified position into a FEN string.
+// SerializeFEN serializes the specified position into a FEN string.
 // FEN string contains six fields, each separated by a space.
-func Serialize(p types.Position) string {
+func SerializeFEN(p Position) string {
 	var fenStr strings.Builder
 	fenStr.Grow(64)
 
 	// 1 field: piece placement.
 	fenStr.WriteString(FromBitboardArray(p.Bitboards))
 	// 2 field: active color.
-	if p.ActiveColor == types.ColorWhite {
+	if p.ActiveColor == ColorWhite {
 		fenStr.WriteString(" w ")
 	} else {
 		fenStr.WriteString(" b ")
 	}
 	// 3 field: castling rights.
 	cnt := 4
-	if p.CastlingRights&types.CastlingWhiteShort != 0 {
+	if p.CastlingRights&CastlingWhiteShort != 0 {
 		fenStr.WriteByte('K')
 		cnt--
 	}
-	if p.CastlingRights&types.CastlingWhiteLong != 0 {
+	if p.CastlingRights&CastlingWhiteLong != 0 {
 		fenStr.WriteByte('Q')
 		cnt--
 	}
-	if p.CastlingRights&types.CastlingBlackShort != 0 {
+	if p.CastlingRights&CastlingBlackShort != 0 {
 		fenStr.WriteByte('k')
 		cnt--
 	}
-	if p.CastlingRights&types.CastlingBlackLong != 0 {
+	if p.CastlingRights&CastlingBlackLong != 0 {
 		fenStr.WriteByte('q')
 		cnt--
 	}
@@ -122,8 +115,8 @@ func Serialize(p types.Position) string {
 	return fenStr.String()
 }
 
-// ToBitboardArray converts the first part of a Forsyth-Edwards Notation string into
-// an array of bitboards.
+// ToBitboardArray converts the first part of a Forsyth-Edwards Notation
+// string into an array of bitboards.
 func ToBitboardArray(piecePlacement string) [15]uint64 {
 	var bitboards [15]uint64
 	square := 56
@@ -134,41 +127,42 @@ func ToBitboardArray(piecePlacement string) [15]uint64 {
 
 		if char == '/' { // Rank separator.
 			square -= 16
-		} else if char >= '1' && char <= '8' { // Number of consecutive empty squares.
+			// Number of consecutive empty squares.
+		} else if char >= '1' && char <= '8' {
 			// Convert byte to the integer it represents.
 			square += int(char - '0')
 		} else { // There is piece on a square.
-			var piece types.Piece // types.PieceWPawn by default.
+			var piece Piece // PieceWPawn by default.
 			// Manual switch construction is ~3x faster than map approach.
 			switch char {
 			case 'N':
-				piece = types.PieceWKnight
+				piece = PieceWKnight
 			case 'B':
-				piece = types.PieceWBishop
+				piece = PieceWBishop
 			case 'R':
-				piece = types.PieceWRook
+				piece = PieceWRook
 			case 'Q':
-				piece = types.PieceWQueen
+				piece = PieceWQueen
 			case 'K':
-				piece = types.PieceWKing
+				piece = PieceWKing
 			case 'p':
-				piece = types.PieceBPawn
+				piece = PieceBPawn
 			case 'n':
-				piece = types.PieceBKnight
+				piece = PieceBKnight
 			case 'b':
-				piece = types.PieceBBishop
+				piece = PieceBBishop
 			case 'r':
-				piece = types.PieceBRook
+				piece = PieceBRook
 			case 'q':
-				piece = types.PieceBQueen
+				piece = PieceBQueen
 			case 'k':
-				piece = types.PieceBKing
+				piece = PieceBKing
 			}
 			// Set the bit on the bitboards to place a piece.
 			bb := uint64(1 << square)
 
 			bitboards[piece] |= bb
-			if piece <= types.PieceWKing {
+			if piece <= PieceWKing {
 				bitboards[12] |= bb
 			} else {
 				bitboards[13] |= bb
@@ -191,12 +185,12 @@ func FromBitboardArray(bitboards [15]uint64) string {
 
 	var board [64]byte
 
-	for i := 0; i <= types.PieceBKing; i++ {
+	for i := 0; i <= PieceBKing; i++ {
 		// Go through all pieces on a bitboard.
 		for bitboards[i] > 0 {
-			square := bitutil.PopLSB(&bitboards[i])
+			square := PopLSB(&bitboards[i])
 			// Add piece on board.
-			board[square] = pieceSymbols[i]
+			board[square] = PieceSymbols[i]
 		}
 	}
 

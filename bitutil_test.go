@@ -1,4 +1,4 @@
-package bitutil
+package chego
 
 import "testing"
 

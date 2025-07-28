@@ -1,23 +1,16 @@
-// Package game impements chess game state management.
-//
-// Make sure to call [movegen.InitAttackTables] ONCE before using this package.
-package game
+// game.go impements chess game state management.
+// Make sure to call [InitAttackTables] ONCE before using functions from this file.
 
-import (
-	"github.com/BelikovArtem/chego/bitutil"
-	"github.com/BelikovArtem/chego/fen"
-	"github.com/BelikovArtem/chego/movegen"
-	"github.com/BelikovArtem/chego/types"
-)
+package chego
 
 // Game represents a single chess game state.
 type Game struct {
-	Position    types.Position
-	LegalMoves  types.MoveList
+	Position    Position
+	LegalMoves  MoveList
 	MoveStack   []CompletedMove
 	Repetitions map[string]int
 	// Keep track of all captured pieces.
-	Captured []types.Piece
+	Captured []Piece
 }
 
 // CompletedMove represents a completed move.
@@ -25,20 +18,20 @@ type CompletedMove struct {
 	// Game state after completing the move to enable move undo and state restoration.
 	FenString string
 	// Move itself.
-	Move types.Move
+	Move Move
 }
 
 // NewGame creates a new game initialized with the default chess position.
 // Generates legal moves.
 func NewGame() *Game {
 	g := &Game{
-		Position:    fen.Parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"),
 		MoveStack:   make([]CompletedMove, 0, 15),
 		Repetitions: make(map[string]int),
-		Captured:    make([]types.Piece, 0, 15),
+		Captured:    make([]Piece, 0, 15),
 	}
+	g.Position = ParseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
-	movegen.GenLegalMoves(g.Position, &g.LegalMoves)
+	GenLegalMoves(g.Position, &g.LegalMoves)
 	// Add beginning repitition key.
 	key := repetitionKey(g.Position, g.LegalMoves)
 	g.Repetitions[key]++
@@ -48,24 +41,24 @@ func NewGame() *Game {
 // PushMove updates the game state by performing the specified move.
 // It is a caller responsibility to check if the specified move is legal.
 // Generates legal moves for the next turn.
-func (g *Game) PushMove(m types.Move) {
+func (g *Game) PushMove(m Move) {
 	captured := g.Position.GetPieceFromSquare(1 << m.To())
 
 	g.Position.MakeMove(m)
 
 	// Memorize captured piece.
-	if captured != types.PieceNone {
+	if captured != PieceNone {
 		g.Captured = append(g.Captured, captured)
 	}
 
 	// Store the completed move.
 	g.MoveStack = append(g.MoveStack, CompletedMove{
 		Move:      m,
-		FenString: fen.Serialize(g.Position),
+		FenString: SerializeFEN(g.Position),
 	})
 
 	// Generate legal moves for the next turn.
-	movegen.GenLegalMoves(g.Position, &g.LegalMoves)
+	GenLegalMoves(g.Position, &g.LegalMoves)
 
 	// Add repetition key to detect repetitions.
 	key := repetitionKey(g.Position, g.LegalMoves)
@@ -87,9 +80,9 @@ func (g *Game) PopMove() {
 	g.MoveStack = g.MoveStack[:len(g.MoveStack)-1]
 
 	if len(g.MoveStack) > 0 {
-		pos := fen.Parse(g.MoveStack[len(g.MoveStack)-1].FenString)
+		pos := ParseFEN(g.MoveStack[len(g.MoveStack)-1].FenString)
 		g.Position = pos
-		movegen.GenLegalMoves(g.Position, &g.LegalMoves)
+		GenLegalMoves(g.Position, &g.LegalMoves)
 	} else {
 		// Restore initial game state.
 		newGame := NewGame()
@@ -132,20 +125,20 @@ func (g *Game) IsInsufficientMaterial() bool {
 		return true
 	}
 
-	if material == 3 && g.Position.Bitboards[types.PieceWPawn] == 0 &&
-		g.Position.Bitboards[types.PieceBPawn] == 0 {
+	if material == 3 && g.Position.Bitboards[PieceWPawn] == 0 &&
+		g.Position.Bitboards[PieceBPawn] == 0 {
 		return true
 	}
 
 	if material == 6 {
-		whiteBishop := g.Position.Bitboards[types.PieceWBishop]
-		blackBishop := g.Position.Bitboards[types.PieceBBishop]
+		whiteBishop := g.Position.Bitboards[PieceWBishop]
+		blackBishop := g.Position.Bitboards[PieceBBishop]
 
 		// TODO: clean up this mess
 		return (whiteBishop != 0 && blackBishop != 0 && ((whiteBishop&dark > 0 &&
 			blackBishop&dark > 0) || (whiteBishop&dark == 0 && blackBishop&dark == 0))) ||
-			(g.Position.Bitboards[types.PieceWKnight] != 0 &&
-				g.Position.Bitboards[types.PieceBKnight] != 0)
+			(g.Position.Bitboards[PieceWKnight] != 0 &&
+				g.Position.Bitboards[PieceBKnight] != 0)
 	}
 	return false
 }
@@ -160,15 +153,15 @@ func (g *Game) IsInsufficientMaterial() bool {
 func (g *Game) IsCheckmate() bool {
 	// Check whether the king in check.
 	var occupancy uint64
-	for i := types.PieceWPawn; i <= types.PieceBKing; i++ {
+	for i := PieceWPawn; i <= PieceBKing; i++ {
 		occupancy |= g.Position.Bitboards[i]
 	}
-	kingBB := g.Position.Bitboards[types.PieceWKing]
-	if g.Position.ActiveColor == types.ColorBlack {
-		kingBB = g.Position.Bitboards[types.PieceBKing]
+	kingBB := g.Position.Bitboards[PieceWKing]
+	if g.Position.ActiveColor == ColorBlack {
+		kingBB = g.Position.Bitboards[PieceBKing]
 	}
 
-	isKingInCheck := movegen.IsSquareUnderAttack(g.Position.Bitboards, bitutil.BitScan(kingBB),
+	isKingInCheck := IsSquareUnderAttack(g.Position.Bitboards, BitScan(kingBB),
 		1^g.Position.ActiveColor)
 	return isKingInCheck && g.LegalMoves.LastMoveIndex == 0
 }
@@ -179,16 +172,16 @@ func (g *Game) IsCheckmate() bool {
 //
 // NOTE: It also updates the promotion piece flag in the legal move,
 // so the player can promote to the desired piece.
-func (g *Game) GetLegalMoveIndex(m types.Move) int {
+func (g *Game) GetLegalMoveIndex(m Move) int {
 	for i, legalMove := range g.LegalMoves.Moves {
 		if legalMove.From() == m.From() && legalMove.To() == m.To() {
-			if legalMove.Type() == types.MovePromotion {
+			if legalMove.Type() == MovePromotion {
 				promo := m.PromotionPiece()
 				// Update promotion piece in case it is invalid.
-				if promo < types.PromotionKnight || promo > types.PromotionQueen {
-					promo = types.PromotionQueen
+				if promo < PromotionKnight || promo > PromotionQueen {
+					promo = PromotionQueen
 				}
-				g.LegalMoves.Moves[i] = types.NewPromotionMove(m.To(), m.From(), promo)
+				g.LegalMoves.Moves[i] = NewPromotionMove(m.To(), m.From(), promo)
 			}
 			return i
 		}
@@ -201,23 +194,23 @@ func (g *Game) GetLegalMoveIndex(m types.Move) int {
 func (g *Game) calculateMaterial() int {
 	var material int
 
-	for pieceType := types.PieceWPawn; pieceType < types.PieceBKing; pieceType++ {
-		if pieceType == types.PieceWKing {
+	for pieceType := PieceWPawn; pieceType < PieceBKing; pieceType++ {
+		if pieceType == PieceWKing {
 			continue
 		}
 
 		coefficient := 1
 		switch pieceType {
-		case types.PieceWKnight, types.PieceBKnight,
-			types.PieceWBishop, types.PieceBBishop:
+		case PieceWKnight, PieceBKnight,
+			PieceWBishop, PieceBBishop:
 			coefficient = 3
-		case types.PieceWRook, types.PieceBRook:
+		case PieceWRook, PieceBRook:
 			coefficient = 5
-		case types.PieceWQueen, types.PieceBQueen:
+		case PieceWQueen, PieceBQueen:
 			coefficient = 9
 		}
 
-		material += bitutil.CountBits(g.Position.Bitboards[pieceType]) * coefficient
+		material += CountBits(g.Position.Bitboards[pieceType]) * coefficient
 	}
 
 	return material

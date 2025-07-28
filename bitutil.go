@@ -1,5 +1,7 @@
-// Package bitutil implements helpful bit utilities used in move generation and game management logic.
-package bitutil
+// bitutil.go implements useful bit utilities which
+// are used in move generation and game management logic.
+
+package chego
 
 // Precalculated magic used to form indices for the BitScanLookup array.
 const BITSCAN_MAGIC uint64 = 0x07EDD5E59A4E28C2
@@ -17,12 +19,15 @@ var bitScanLookup = [64]int{
 	44, 24, 15, 8, 23, 7, 6, 5,
 }
 
-// BitScan returns the index of the Least Significant Bit (LSB) withing the bitboard.
-// bitboard&-bitboard gives the LSB which is then run through the hashing scheme to index a lookup.
-func BitScan(bitboard uint64) int { return bitScanLookup[bitboard&-bitboard*BITSCAN_MAGIC>>58] }
+// BitScan returns the index of the Least Significant Bit (LSB) withing
+// the bitboard. *bitboard&-bitboard* gives the LSB which is then run through
+// the hashing scheme to index a lookup.
+func BitScan(bitboard uint64) int {
+	return bitScanLookup[bitboard&-bitboard*BITSCAN_MAGIC>>58]
+}
 
-// PopLSB removes (pops) the least significant bit from the bitboard and returns its index.
-// If the bitboard is empty, it returns -1.
+// PopLSB removes (pops) the least significant bit from the bitboard and
+// returns its index. If the bitboard is empty, it returns -1.
 func PopLSB(bitboard *uint64) int {
 	if *bitboard == 0 {
 		return -1
