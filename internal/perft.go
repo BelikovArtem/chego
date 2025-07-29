@@ -1,6 +1,6 @@
 // Package main provides debugging and testing functions.
-// It is excluded from the chego package, as it is only used for testing purposes.
-// The chego users won't be able to import this package.
+// It is excluded from the chego package, as it is only used
+// for testing purposes. The chego users won't be able to import this package.
 package main
 
 import (
@@ -14,14 +14,15 @@ import (
 
 // Test positions. See https://www.chessprogramming.org/Perft
 const initFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+const test = "rnbqkbnr/1ppppppp/8/P7/8/8/P1PPPPPP/RNBQKBNR b KQkq - 0 1"
 
-// Perft is a debugging function that walks through the move generation
+// perft is a debugging function that walks through the move generation
 // tree of strictly legal moves to a given depth and counts the number of
 // visited leaf nodes. The resulting count is then compared to
 // predetermined values.
 //
 // See https://www.chessprogramming.org/Perft_Results
-func Perft(p chego.Position, depth int, isRoot bool) uint64 {
+func perft(p chego.Position, depth int, isRoot bool) uint64 {
 	if depth == 0 {
 		return 1
 	}
@@ -36,10 +37,10 @@ func Perft(p chego.Position, depth int, isRoot bool) uint64 {
 
 		p.MakeMove(m)
 
-		cnt := Perft(p, depth-1, false)
-		// if isRoot {
-		log.Printf("%s %d", chego.Move2UCI(m), cnt)
-		// }
+		cnt := perft(p, depth-1, false)
+		if isRoot {
+			log.Printf("%s %d", chego.Move2UCI(m), cnt)
+		}
 		nodes += cnt
 
 		p.UndoMove()
@@ -50,6 +51,8 @@ func Perft(p chego.Position, depth int, isRoot bool) uint64 {
 
 // main calls the Perft function and measures it's execution time.
 func main() {
+	chego.InitAttackTables()
+
 	depth := flag.Int("depth", 5, "Performance test depth")
 	flag.Parse()
 
@@ -62,9 +65,9 @@ func main() {
 		log.Printf("Elapsed time: %d ns", elapsed.Nanoseconds())
 	}()
 
-	p := chego.ParseFEN(initFEN)
+	p := chego.ParseFEN(test)
 
-	nodes = Perft(p, *depth, true)
+	nodes = perft(p, *depth, true)
 }
 
 // position formats a full chess position into a string.

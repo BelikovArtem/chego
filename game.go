@@ -151,18 +151,8 @@ func (g *Game) IsInsufficientMaterial() bool {
 // NOTE: If there are no legal moves, but the king is not in check, the position
 // is a stalemate.
 func (g *Game) IsCheckmate() bool {
-	// Check whether the king in check.
-	var occupancy uint64
-	for i := PieceWPawn; i <= PieceBKing; i++ {
-		occupancy |= g.Position.Bitboards[i]
-	}
-	kingBB := g.Position.Bitboards[PieceWKing]
-	if g.Position.ActiveColor == ColorBlack {
-		kingBB = g.Position.Bitboards[PieceBKing]
-	}
-
-	isKingInCheck := IsSquareUnderAttack(g.Position.Bitboards, BitScan(kingBB),
-		1^g.Position.ActiveColor)
+	isKingInCheck := genCheckingPieces(g.Position.Bitboards,
+		1^g.Position.ActiveColor) > 0
 	return isKingInCheck && g.LegalMoves.LastMoveIndex == 0
 }
 
@@ -176,7 +166,7 @@ func (g *Game) GetLegalMoveIndex(m Move) int {
 	for i, legalMove := range g.LegalMoves.Moves {
 		if legalMove.From() == m.From() && legalMove.To() == m.To() {
 			if legalMove.Type() == MovePromotion {
-				promo := m.PromotionPiece()
+				promo := m.PromoPiece()
 				// Update promotion piece in case it is invalid.
 				if promo < PromotionKnight || promo > PromotionQueen {
 					promo = PromotionQueen
@@ -210,7 +200,7 @@ func (g *Game) calculateMaterial() int {
 			coefficient = 9
 		}
 
-		material += CountBits(g.Position.Bitboards[pieceType]) * coefficient
+		material += countBits(g.Position.Bitboards[pieceType]) * coefficient
 	}
 
 	return material

@@ -15,21 +15,23 @@ func NewMove(to, from, moveType int) Move {
 	return Move(to | (from << 6) | (PromotionQueen << 12) | (moveType << 14))
 }
 
-// NewPromotionMove creates a new move with the promotion type and specified promotion piece.
-func NewPromotionMove(to, from, promotionPiece int) Move {
-	return Move(to | (from << 6) | (promotionPiece << 12) | (MovePromotion << 14))
+// NewPromotionMove creates a new move with the promotion type and specified
+// promotion piece.
+func NewPromotionMove(to, from, promoPiece int) Move {
+	return Move(to | (from << 6) | (promoPiece << 12) | (MovePromotion << 14))
 }
 
-func (m Move) To() int                       { return int(m & 0x3F) }
-func (m Move) From() int                     { return int(m>>6) & 0x3F }
-func (m Move) PromotionPiece() PromotionFlag { return PromotionFlag(m>>12) & 0x3 }
-func (m Move) Type() MoveType                { return MoveType(m>>14) & 0x3 }
+func (m Move) To() int                   { return int(m & 0x3F) }
+func (m Move) From() int                 { return int(m>>6) & 0x3F }
+func (m Move) PromoPiece() PromotionFlag { return PromotionFlag(m>>12) & 0x3 }
+func (m Move) Type() MoveType            { return MoveType(m>>14) & 0x3 }
 
 // MoveList is used to store moves. The main idea behind it is to preallocate
 // an array with enough capacity to store all possible moves and avoid dynamic
 // memory allocations.
 type MoveList struct {
-	// Maximum number of moves per chess position is equal to 218, hence 218 elements.
+	// Maximum number of moves per chess position is equal to 218,
+	// hence 218 elements.
 	// See https://www.talkchess.com/forum/viewtopic.php?t=61792
 	Moves [218]Move
 	// To keep track of the next move index.
@@ -61,7 +63,8 @@ var (
 	}
 )
 
-// Piece is an allias type to avoid bothersome conversion between int and Piece.
+// Piece is an allias type to avoid bothersome conversion between
+// int and Piece.
 type Piece = int
 
 const (
@@ -81,7 +84,8 @@ const (
 	PieceNone = -1
 )
 
-// PromotionFlag is an allias type to avoid bothersome conversion between int and Color.
+// PromotionFlag is an allias type to avoid bothersome conversion between
+// int and Color.
 type PromotionFlag = int
 
 // 00 - knight, 01 - bishop, 10 - rook, 11 - queen.
@@ -101,7 +105,8 @@ const (
 	ColorBoth
 )
 
-// MoveType is an allias type to avoid bothersome conversion between int and MoveType.
+// MoveType is an allias type to avoid bothersome conversion between
+// int and MoveType.
 type MoveType = int
 
 const (
@@ -121,7 +126,7 @@ const (
 //  1 bit: white king can O-O-O.
 //  2 bit: black king can O-O.
 //  3 bit: black king can O-O-O.
-type CastlingRights int
+type CastlingRights = int
 
 const (
 	CastlingWhiteShort CastlingRights = 1
@@ -211,6 +216,7 @@ const (
 	F8
 	G8
 	H8
+	ALL_SQUARES = 0xFFFFFFFFFFFFFFFF
 )
 
 // Each square.

@@ -7,30 +7,36 @@ package chego
 import (
 	"strconv"
 
-	// strings is used to reduce the number of memory allocations during strings concatenation.
 	"strings"
 )
 
+// Each FEN string consists of six parts, separated by a space:
+//  1. Piece placement: will be parsed into the array of bitboards.
+//  2. Active color:
+//     "w" means that White is to move;
+//     "b" means that Black is to move.
+//  3. Castling rights: if neither side has the ability to castle,
+//     this field uses the character "-".
+//  4. En passant target square: if there is no en passant target square,
+//     this field uses the character "-".
+//  5. Halfmove clock: used for the fifty-move rule.
+//  6. Fullmove number: The number of the full moves.
+
 // ParseFEN parses the given FEN string into a [Position].
-func ParseFEN(fenStr string) (p Position) {
-	var fields [6]string
+// It's a caller responsibility to validate the provided FEN string.
+func ParseFEN(fen string) (p Position) {
 	// Separate FEN fields.
-	var j, prev int
-	for i := 0; i < len(fenStr); i++ {
-		// Field separator.
-		if fenStr[i] == ' ' {
-			fields[j] = fenStr[prev:i]
-			j++
-			prev = i + 1
-		}
-	}
-	fields[5] = fenStr[prev:]
-	// Parce piece placement.
-	p.Bitboards = ToBitboardArray(fields[0])
+	fields := strings.SplitN(fen, " ", 6)
+
+	// Parse piece placement.
+	p.Bitboards = ParseBitboards(fields[0])
+
 	// Parse active color.
+	// p will have ColorWhite by default.
 	if fields[1] == "b" {
 		p.ActiveColor = ColorBlack
 	}
+
 	// Parse castling rights.
 	for i := 0; i < len(fields[2]); i++ {
 		switch fields[2][i] {
@@ -44,14 +50,17 @@ func ParseFEN(fenStr string) (p Position) {
 			p.CastlingRights |= CastlingBlackLong
 		}
 	}
+
 	// Parse en passant target square.
-	p.EPTarget = squareFromString(fields[3])
+	p.EPTarget = string2Square(fields[3])
+
 	// Parse halfmove counter.
 	var err error
 	p.HalfmoveCnt, err = strconv.Atoi(fields[4])
 	if err != nil {
 		panic("cannot parse halfmove counter from FEN string")
 	}
+
 	// Parse fullmove counter.
 	p.FullmoveCnt, err = strconv.Atoi(fields[5])
 	if err != nil {
@@ -61,64 +70,69 @@ func ParseFEN(fenStr string) (p Position) {
 	return p
 }
 
-// SerializeFEN serializes the specified position into a FEN string.
-// FEN string contains six fields, each separated by a space.
+// SerializeFEN serializes the specified [Position] into a FEN string.
 func SerializeFEN(p Position) string {
-	var fenStr strings.Builder
-	fenStr.Grow(64)
+	var fen strings.Builder
+	fen.Grow(64)
 
 	// 1 field: piece placement.
-	fenStr.WriteString(FromBitboardArray(p.Bitboards))
+	fen.WriteString(SerializeBitboards(p.Bitboards))
+
 	// 2 field: active color.
 	if p.ActiveColor == ColorWhite {
-		fenStr.WriteString(" w ")
+		fen.WriteString(" w ")
 	} else {
-		fenStr.WriteString(" b ")
+		fen.WriteString(" b ")
 	}
+
 	// 3 field: castling rights.
 	cnt := 4
 	if p.CastlingRights&CastlingWhiteShort != 0 {
-		fenStr.WriteByte('K')
+		fen.WriteByte('K')
 		cnt--
 	}
 	if p.CastlingRights&CastlingWhiteLong != 0 {
-		fenStr.WriteByte('Q')
+		fen.WriteByte('Q')
 		cnt--
 	}
 	if p.CastlingRights&CastlingBlackShort != 0 {
-		fenStr.WriteByte('k')
+		fen.WriteByte('k')
 		cnt--
 	}
 	if p.CastlingRights&CastlingBlackLong != 0 {
-		fenStr.WriteByte('q')
+		fen.WriteByte('q')
 		cnt--
 	}
 	if cnt == 4 {
-		fenStr.WriteByte('-')
+		fen.WriteByte('-')
 	}
-	fenStr.WriteByte(' ')
+	fen.WriteByte(' ')
+
 	// 4 field: en passant target square.
 	if p.EPTarget == 0 {
-		fenStr.WriteString("- ")
+		fen.WriteString("- ")
 	} else {
 		files := "abcdefgh"
-		fenStr.WriteByte(files[p.EPTarget%8])
-		fenStr.WriteByte('0' + byte(p.EPTarget/8+1))
-		fenStr.WriteByte(' ')
+		fen.WriteByte(files[p.EPTarget%8])
+		fen.WriteByte('0' + byte(p.EPTarget/8+1))
+		fen.WriteByte(' ')
 	}
-	// 5 field: the number of halfmoves.
-	fenStr.WriteString(strconv.Itoa(p.HalfmoveCnt))
-	fenStr.WriteByte(' ')
-	// 6 field: the number of fullmoves.
-	fenStr.WriteString(strconv.Itoa(p.FullmoveCnt))
 
-	return fenStr.String()
+	// 5 field: the number of halfmoves.
+	fen.WriteString(strconv.Itoa(p.HalfmoveCnt))
+	fen.WriteByte(' ')
+
+	// 6 field: the number of fullmoves.
+	fen.WriteString(strconv.Itoa(p.FullmoveCnt))
+
+	return fen.String()
 }
 
-// ToBitboardArray converts the first part of a Forsyth-Edwards Notation
+// ParseBitboards converts the first part of a FEN
 // string into an array of bitboards.
-func ToBitboardArray(piecePlacement string) [15]uint64 {
-	var bitboards [15]uint64
+//
+// May panic if the provided string is not valid.
+func ParseBitboards(piecePlacement string) (bitboards [15]uint64) {
 	square := 56
 
 	// Piece placement data describes each rank beginning from the eigth.
@@ -176,19 +190,19 @@ func ToBitboardArray(piecePlacement string) [15]uint64 {
 	return bitboards
 }
 
-// FromBitboardArray converts the array of bitboards into the first part
-// of Forsyth-Edwards Notation.
-func FromBitboardArray(bitboards [15]uint64) string {
-	// Used to add characters to a string without extra mem allocs.
-	var piecePlacement strings.Builder
-	piecePlacement.Grow(20)
+// SerializeBitboards converts the array of bitboards into
+// the first part of FEN string.
+func SerializeBitboards(bitboards [15]uint64) string {
+	// Used to add characters to a string without extra memory allocations.
+	b := strings.Builder{}
+	b.Grow(20)
 
 	var board [64]byte
 
 	for i := 0; i <= PieceBKing; i++ {
 		// Go through all pieces on a bitboard.
 		for bitboards[i] > 0 {
-			square := PopLSB(&bitboards[i])
+			square := popLSB(&bitboards[i])
 			// Add piece on board.
 			board[square] = PieceSymbols[i]
 		}
@@ -204,33 +218,34 @@ func FromBitboardArray(bitboards [15]uint64) string {
 				emptySquares++
 			} else { // Piece on square.
 				if emptySquares > 0 {
-					piecePlacement.WriteByte('0' + emptySquares)
+					b.WriteByte('0' + emptySquares)
 					emptySquares = 0
 				}
-				piecePlacement.WriteByte(char)
+				b.WriteByte(char)
 			}
 
 			// To add rank separators.
 			if (square+1)%8 == 0 {
 				if emptySquares > 0 {
-					piecePlacement.WriteByte('0' + emptySquares)
+					b.WriteByte('0' + emptySquares)
 					emptySquares = 0
 				}
 				// Do not add separator in the end of the string.
 				if square != 7 {
-					piecePlacement.WriteByte('/')
+					b.WriteByte('/')
 				}
 			}
 		}
 	}
 
-	return piecePlacement.String()
+	return b.String()
 }
 
-// squareFromString is used to parse en passant target square.
-// Handles '-' as A1 square.
-func squareFromString(str string) int {
-	var square int
+// string2Square parses the given string into a square index.
+// Handles "-" as A1 square.
+func string2Square(str string) int {
+	square := 0
+
 	switch str[0] {
 	case 'b':
 		square = 1
@@ -247,7 +262,8 @@ func squareFromString(str string) int {
 	case 'h':
 		square = 7
 	case '-':
-		return 0
+		return SA1
 	}
+
 	return square + (int(str[1]-'0')-1)*8
 }

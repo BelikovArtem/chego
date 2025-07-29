@@ -14,7 +14,7 @@ func Move2UCI(m Move) string {
 	b.WriteString(Square2String[m.To()])
 
 	if m.Type() == MovePromotion {
-		switch m.PromotionPiece() {
+		switch m.PromoPiece() {
 		case PromotionKnight:
 			b.WriteByte('n')
 		case PromotionBishop:

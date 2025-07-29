@@ -34,15 +34,15 @@ func BenchmarkGenRookAttacks(b *testing.B) {
 	}
 }
 
-func BenchmarkInitBishopReleventOccupancy(b *testing.B) {
+func BenchmarkInitBishopOccupancy(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		initBishopRelevantOccupancy()
+		initBishopOccupancy()
 	}
 }
 
-func BenchmarkInitRookReleventOccupancy(b *testing.B) {
+func BenchmarkInitRookOccupancy(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		initRookRelevantOccupancy()
+		initRookOccupancy()
 	}
 }
 
@@ -64,33 +64,17 @@ func BenchmarkLookupQueenAttacks(b *testing.B) {
 	}
 }
 
-func BenchmarkIsSquareUnderAttack(b *testing.B) {
-	bitboards := ToBitboardArray("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
-
-	for b.Loop() {
-		IsSquareUnderAttack(bitboards, SD4, ColorWhite)
-	}
-}
-
-func BenchmarkGenPawnMoves(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		genPawnMoves(SE4, 0x0, 0x0, 0, ColorWhite, &MoveList{})
-	}
-}
+// func BenchmarkGenPawnMoves(b *testing.B) {
+// 	for i := 0; i < b.N; i++ {
+// 		genPawnMoves(SE4, 0x0, 0x0, 0, ColorWhite, &MoveList{})
+// 	}
+// }
 
 func BenchmarkGenKingMoves(b *testing.B) {
 	pos := ParseFEN("8/8/8/8/8/8/8/R3K2R w - - 0 1")
 
 	for b.Loop() {
-		genKingMoves(pos, SE1, &MoveList{})
-	}
-}
-
-func BenchmarkGenPseudoLegalMoves(b *testing.B) {
-	pos := ParseFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
-
-	for b.Loop() {
-		genPseudoLegalMoves(pos, &MoveList{})
+		genKingMoves(&pos, &MoveList{})
 	}
 }
 
@@ -98,7 +82,8 @@ func BenchmarkGenLegalMoves(b *testing.B) {
 	pos := ParseFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
 
 	for b.Loop() {
-		GenLegalMoves(pos, &MoveList{})
+		lm := MoveList{}
+		GenLegalMoves(pos, &lm)
 	}
 }
 

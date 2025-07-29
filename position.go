@@ -16,13 +16,14 @@ type Position struct {
 }
 
 // MakeMove modifies the position by applying the specified move.
-// It's the caller's responsibility to ensure the move is legal.
+// It's a caller responsibility to validate the provided FEN string.
 // The current position is saved in the lastPos field before making the move.
 //
 // Not only is the piece placement updated, but also the entire position,
-// including castling rights, en passant target, move counters, and the active color.
+// including castling rights, en passant target, move counters,
+// and the active color.
 func (p *Position) MakeMove(m Move) {
-	var from, to uint64 = 1 << m.From(), 1 << m.To()
+	from, to := uint64(1<<m.From()), uint64(1<<m.To())
 	fromTo := from ^ to
 	movedPiece := p.GetPieceFromSquare(from)
 
@@ -59,14 +60,18 @@ func (p *Position) MakeMove(m Move) {
 		}
 		p.Bitboards[movedPiece] ^= fromTo
 		p.Bitboards[12+(1^p.ActiveColor)] ^= to
+		p.Bitboards[14] ^= to
 
 	case MoveCastling:
+		rookFromTo := uint64(0)
 		switch to {
 		case G1, G8: // O-O
-			p.Bitboards[movedPiece-2] ^= (to << 1) ^ (to >> 1)
+			rookFromTo = (to << 1) ^ (to >> 1)
 		case C1, C8: // O-O-O
-			p.Bitboards[movedPiece-2] ^= (to >> 2) ^ (to << 1)
+			rookFromTo = (to >> 2) ^ (to << 1)
 		}
+		p.Bitboards[movedPiece-2] ^= rookFromTo
+		p.Bitboards[14] ^= rookFromTo
 		p.Bitboards[movedPiece] ^= fromTo
 
 	case MovePromotion:
@@ -82,9 +87,9 @@ func (p *Position) MakeMove(m Move) {
 		p.Bitboards[movedPiece] ^= from
 		// Place a new piece.
 		if movedPiece == PieceWPawn {
-			p.Bitboards[m.PromotionPiece()+1] ^= to
+			p.Bitboards[m.PromoPiece()+1] ^= to
 		} else {
-			p.Bitboards[m.PromotionPiece()+7] ^= to
+			p.Bitboards[m.PromoPiece()+7] ^= to
 		}
 	}
 	// Update allies bitboard.
@@ -92,7 +97,8 @@ func (p *Position) MakeMove(m Move) {
 	// Update occupancy bitboard.
 	p.Bitboards[14] ^= fromTo
 
-	// Reset the en passant target since the en passant capture is possible only for 1 move.
+	// Reset the en passant target since the en passant capture
+	// is possible only for 1 move.
 	p.EPTarget = 0
 
 	switch movedPiece {
@@ -114,7 +120,8 @@ func (p *Position) MakeMove(m Move) {
 	case PieceBKing:
 		p.CastlingRights &= ^(CastlingBlackShort | CastlingBlackLong)
 
-	// Disable castling rights if the white rooks aren't standing on their initial positions.
+	// Disable castling rights if the white rooks aren't
+	// standing on their initial positions.
 	case PieceWRook:
 		if p.Bitboards[PieceWRook]&A1 == 0 {
 			p.CastlingRights &= ^CastlingWhiteLong
@@ -123,7 +130,8 @@ func (p *Position) MakeMove(m Move) {
 			p.CastlingRights &= ^CastlingWhiteShort
 		}
 
-	// Disable castling rights if the black rooks aren't standing on their initial positions.
+	// Disable castling rights if the black rooks aren't
+	// standing on their initial positions.
 	case PieceBRook:
 		if p.Bitboards[PieceBRook]&A8 == 0 {
 			p.CastlingRights &= ^CastlingBlackLong
@@ -158,4 +166,17 @@ func (p *Position) GetPieceFromSquare(square uint64) Piece {
 		}
 	}
 	return PieceNone
+}
+
+// CanCastle checks whether the king can peform
+// castling in the specified direction.
+// side == 1 : White O-O.
+// side == 2 : White O-O-O.
+// side == 4 : Black O-O.
+// side == 8 : Black O-O-O.
+func (p *Position) CanCastle(side int, attacks, occupancy uint64) bool {
+	path := castlingPath[bitScan(uint64(side))]
+	return p.CastlingRights&side != 0 &&
+		attacks&path == 0 &&
+		occupancy&path == 0
 }
