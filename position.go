@@ -12,97 +12,97 @@ type Position struct {
 	EPTarget       int
 	HalfmoveCnt    int
 	FullmoveCnt    int
-	lastPos        *Position
+	// prevPos is nil by default.
+	prevPos *Position
 }
 
 // MakeMove modifies the position by applying the specified move.
-// It's a caller responsibility to validate the provided FEN string.
-// The current position is saved in the lastPos field before making the move.
+// It's a caller responsibility to ensure the legality of the move.
+// The position is saved in the prevPos field before making the move to
+// allow undo functionality.
 //
 // Not only is the piece placement updated, but also the entire position,
-// including castling rights, en passant target, move counters,
-// and the active color.
+// including castling rights, en passant target, halfmove counter, fullmove
+// counter, and the active color.
 func (p *Position) MakeMove(m Move) {
-	from, to := uint64(1<<m.From()), uint64(1<<m.To())
-	fromTo := from ^ to
-	movedPiece := p.GetPieceFromSquare(from)
-
-	p.lastPos = &Position{
-		Bitboards:      p.Bitboards,
+	// Save the position to be able to undo the move.
+	p.prevPos = &Position{
 		ActiveColor:    p.ActiveColor,
 		CastlingRights: p.CastlingRights,
 		EPTarget:       p.EPTarget,
 		HalfmoveCnt:    p.HalfmoveCnt,
 		FullmoveCnt:    p.FullmoveCnt,
+		prevPos:        p.prevPos,
+	}
+	copy(p.prevPos.Bitboards[:], p.Bitboards[:])
+
+	to := uint64(1 << m.To())
+	from := uint64(1 << m.From())
+	piece := p.GetPieceFromSquare(from)
+	captured := p.GetPieceFromSquare(to)
+
+	// Clear the origin square.
+	p.removePiece(piece, from)
+
+	// Increment halfmove counter to detect 50-move rule draw.
+	// This will be reseted if the move is capture, or a pawn push.
+	p.HalfmoveCnt++
+
+	// Remove the captured piece from the board.
+	// This skips en passant captures, since the captured
+	// pawn does not occupy the square the capturing piece moves to.
+	if captured != PieceNone {
+		p.removePiece(captured, to)
+		// Reset the halfmove counter after capture.
+		p.HalfmoveCnt = 0
 	}
 
 	switch m.Type() {
 	case MoveNormal:
-		// If the move is capture.
-		capturedPiece := p.GetPieceFromSquare(to)
-		if capturedPiece != PieceNone {
-			// Remove the captured piece from the board.
-			p.Bitboards[capturedPiece] ^= to
-			p.Bitboards[12+(1^p.ActiveColor)] ^= to
-			// Reset the halfmove counter after captures.
-			p.HalfmoveCnt = 0
-		} else {
-			p.HalfmoveCnt++
-		}
-		p.Bitboards[movedPiece] ^= fromTo
+		p.placePiece(piece, to)
 
 	case MoveEnPassant:
-		// Remove the captured pawn from the board.
-		if movedPiece == PieceWPawn {
-			p.Bitboards[PieceBPawn] ^= to >> 8
+		p.placePiece(piece, to)
+		// Remove the captured piece from the board.
+		if piece == PieceWPawn {
+			p.removePiece(PieceBPawn, to>>8)
 		} else {
-			p.Bitboards[PieceWPawn] ^= to << 8
+			p.removePiece(PieceWPawn, to<<8)
 		}
-		p.Bitboards[movedPiece] ^= fromTo
-		p.Bitboards[12+(1^p.ActiveColor)] ^= to
-		p.Bitboards[14] ^= to
 
 	case MoveCastling:
-		rookFromTo := uint64(0)
+		p.placePiece(piece, to)
+		// Update the rook position.
 		switch to {
-		case G1, G8: // O-O
-			rookFromTo = (to << 1) ^ (to >> 1)
-		case C1, C8: // O-O-O
-			rookFromTo = (to >> 2) ^ (to << 1)
+		case G1: // White O-O.
+			p.removePiece(PieceWRook, H1)
+			p.placePiece(PieceWRook, F1)
+		case G8: // Black O-O.
+			p.removePiece(PieceBRook, H8)
+			p.placePiece(PieceBRook, F8)
+		case C1: // White O-O-O.
+			p.removePiece(PieceWRook, A1)
+			p.placePiece(PieceWRook, D1)
+		case C8: // Black O-O-O.
+			p.removePiece(PieceBRook, A8)
+			p.placePiece(PieceBRook, D8)
 		}
-		p.Bitboards[movedPiece-2] ^= rookFromTo
-		p.Bitboards[14] ^= rookFromTo
-		p.Bitboards[movedPiece] ^= fromTo
 
 	case MovePromotion:
-		// If the move is capture-promotion.
-		capturedPiece := p.GetPieceFromSquare(to)
-		if capturedPiece != PieceNone {
-			// Remove the captured piece from the board.
-			p.Bitboards[capturedPiece] ^= to
-			p.Bitboards[12+(1^p.ActiveColor)] ^= to
+		// Color offset to correctly promote a piece.
+		off := 1
+		if piece == PieceBPawn {
+			off = 7
 		}
-
-		// Remove a promoted pawn from the board.
-		p.Bitboards[movedPiece] ^= from
-		// Place a new piece.
-		if movedPiece == PieceWPawn {
-			p.Bitboards[m.PromoPiece()+1] ^= to
-		} else {
-			p.Bitboards[m.PromoPiece()+7] ^= to
-		}
+		p.placePiece(m.PromoPiece()+off, to)
 	}
-	// Update allies bitboard.
-	p.Bitboards[12+p.ActiveColor] ^= fromTo
-	// Update occupancy bitboard.
-	p.Bitboards[14] ^= fromTo
 
 	// Reset the en passant target since the en passant capture
-	// is possible only for 1 move.
+	// is only legal for 1 move.
 	p.EPTarget = 0
 
-	switch movedPiece {
-	// Set en passant targets in case of pawn double pushes.
+	switch piece {
+	// Set en passant target square is case of double pawn push.
 	case PieceWPawn, PieceBPawn:
 		if m.From()-m.To() == -16 {
 			p.EPTarget = m.To() - 8
@@ -111,34 +111,28 @@ func (p *Position) MakeMove(m Move) {
 		}
 		// Reset the halfmove counter after pawn moves.
 		p.HalfmoveCnt = 0
-
-	// Disable white castling rigts.
-	case PieceWKing:
-		p.CastlingRights &= ^(CastlingWhiteShort | CastlingWhiteLong)
-
-	// Disable black castling rigts.
-	case PieceBKing:
-		p.CastlingRights &= ^(CastlingBlackShort | CastlingBlackLong)
-
-	// Disable castling rights if the white rooks aren't
-	// standing on their initial positions.
+	// The king cannot castle with a rook that has already moved.
 	case PieceWRook:
-		if p.Bitboards[PieceWRook]&A1 == 0 {
+		switch m.From() {
+		case SA1:
 			p.CastlingRights &= ^CastlingWhiteLong
-		}
-		if p.Bitboards[PieceWRook]&H1 == 0 {
+		case SH1:
 			p.CastlingRights &= ^CastlingWhiteShort
 		}
-
-	// Disable castling rights if the black rooks aren't
-	// standing on their initial positions.
+	// The king cannot castle with a rook that has already moved.
 	case PieceBRook:
-		if p.Bitboards[PieceBRook]&A8 == 0 {
+		switch m.From() {
+		case SA8:
 			p.CastlingRights &= ^CastlingBlackLong
-		}
-		if p.Bitboards[PieceBRook]&H8 == 0 {
+		case SH8:
 			p.CastlingRights &= ^CastlingBlackShort
 		}
+	// Disable white castling rights.
+	case PieceWKing:
+		p.CastlingRights &= ^(CastlingWhiteShort | CastlingWhiteLong)
+	// Disable black castling rights.
+	case PieceBKing:
+		p.CastlingRights &= ^(CastlingBlackShort | CastlingBlackLong)
 	}
 
 	// Increment the full move counter after black moves.
@@ -150,10 +144,10 @@ func (p *Position) MakeMove(m Move) {
 	p.ActiveColor ^= 1
 }
 
-// UndoMove restores the position to the last known state, it it's not nil.
+// UndoMove restores the position to the previous state, if it's not nil.
 func (p *Position) UndoMove() {
-	if p.lastPos != nil {
-		*p = *p.lastPos
+	if p.prevPos != nil {
+		*p = *p.prevPos
 	}
 }
 
@@ -170,13 +164,47 @@ func (p *Position) GetPieceFromSquare(square uint64) Piece {
 
 // CanCastle checks whether the king can peform
 // castling in the specified direction.
-// side == 1 : White O-O.
-// side == 2 : White O-O-O.
-// side == 4 : Black O-O.
-// side == 8 : Black O-O-O.
+// side == 1 -> White O-O.
+// side == 2 -> White O-O-O.
+// side == 4 -> Black O-O.
+// side == 8 -> Black O-O-O.
 func (p *Position) CanCastle(side int, attacks, occupancy uint64) bool {
 	path := castlingPath[bitScan(uint64(side))]
 	return p.CastlingRights&side != 0 &&
 		attacks&path == 0 &&
 		occupancy&path == 0
+}
+
+// placePiece places the piece on the specified square and
+// updates the occupancy and allies bitboards.
+func (p *Position) placePiece(piece Piece, square uint64) {
+	// Place the piece.
+	p.Bitboards[piece] |= square
+	// Update allies bitboard.
+	if piece <= PieceWKing { // White piece.
+		p.Bitboards[12] |= square
+	} else { // Black piece.
+		p.Bitboards[13] |= square
+	}
+	// Update occupancy bitboard.
+	p.Bitboards[14] |= square
+}
+
+// removePiece removes the piece from the specified square and
+// updates the occupancy and allies bitboards.
+//
+// NOTE: if there is no piece of the specified type on the
+// specified square, this function will place the piece
+// instead of removing it.
+func (p *Position) removePiece(piece Piece, square uint64) {
+	// Remove the piece.
+	p.Bitboards[piece] ^= square
+	// Update allies bitboard.
+	if piece < PieceWKing { // White piece.
+		p.Bitboards[12] ^= square
+	} else {
+		p.Bitboards[13] ^= square
+	}
+	// Update occupancy bitboard.
+	p.Bitboards[14] ^= square
 }

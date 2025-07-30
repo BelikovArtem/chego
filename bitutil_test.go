@@ -30,7 +30,7 @@ func TestCountBits(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		bb |= uint64(1 << i)
 
-		got := countBits(bb)
+		got := CountBits(bb)
 		if got != i+1 {
 			t.Fatalf("Expected: %d got %d", i+1, got)
 		}
@@ -53,6 +53,6 @@ func BenchmarkPopLSB(b *testing.B) {
 
 func BenchmarkCountBits(b *testing.B) {
 	for b.Loop() {
-		countBits(0xFFFFFFFFFFFFFFFF)
+		CountBits(0xFFFFFFFFFFFFFFFF)
 	}
 }

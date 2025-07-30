@@ -260,16 +260,18 @@ func GenLegalMoves(p Position, l *MoveList) {
 	l.LastMoveIndex = 0
 
 	off := 6 * p.ActiveColor
+	eoff := 6 * (1 ^ p.ActiveColor)
+
 	king := bitScan(p.Bitboards[PieceWKing+off])
 
 	// 1. Generate king legal moves, since if we are in double
 	// check, nobody except the king can move.
 	genKingMoves(&p, l)
 
-	pieces := genCheckingPieces(p.Bitboards, 1^p.ActiveColor)
+	pieces := GenCheckingPieces(p.Bitboards, 1^p.ActiveColor)
+	// Only king can move if there is a double check.
+	// See https://en.wikipedia.org/wiki/Double_check
 	if pieces > 1 {
-		// Only king can move if there is Double Check.
-		// See https://en.wikipedia.org/wiki/Double_check
 		return
 	}
 
@@ -459,52 +461,21 @@ func genPawnMoves(bitboards [15]uint64, pawn int, epTarget uint64,
 	}
 }
 
-// genNormalMoves appends legal moves for pieces that can make
-// only normal moves (knights, bishops, rooks, and queens) to the given
-// move list. Pinned pieces must be excluded before calling this function.
-func genNormalMoves(square int, p Piece, allies,
-	occupancy uint64, l *MoveList) {
-
-}
-
 // genAttacks generates the bitboard of squares attacked
 // by pieces of the specified color.
 // The main purpose of this function is to generate a bitboard
 // of squares to which the king is forbidden to move.
-func genAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
-	// Color offset to correctly index the bitboard array.
-	off := 6 * c
-
-	// The king must be excluded from the occupancy bitboard
-	// to avoid blocking the attacks of slider pieces. Otherwise,
-	// the king may appear to be able to move into check.
-	occupancy := bitboards[14] & (^bitboards[PieceWKing+6*(1^c)])
-
-	attacks |= genPawnAttacks(bitboards[PieceWPawn+off], c)
-	attacks |= genKnightAttacks(bitboards[PieceWKnight+off])
-	attacks |= kingAttacks[bitScan(bitboards[PieceWKing+off])]
-
-	// Bishop, rook, and queen do not support simultaneous
-	// move generation, so generate attacks for one piece at a time.
-	for i := PieceWBishop + off; i <= PieceWQueen+off; i++ {
-		for bitboards[i] > 0 {
-			square := popLSB(&bitboards[i])
-			switch i {
-			case PieceWBishop, PieceBBishop:
-				attacks |= lookupBishopAttacks(square, occupancy)
-			case PieceWRook, PieceBRook:
-				attacks |= lookupRookAttacks(square, occupancy)
-			case PieceWQueen, PieceBQueen:
-				attacks |= lookupQueenAttacks(square, occupancy)
-			}
-		}
-	}
-	return attacks
+//
+// NOTE: The king must be excluded from the occupancy (bitboards[14])
+// bitboard to avoid blocking the attacks of slider pieces.
+// Otherwise, the king may appear to be able to move into check.
+func genAttacks(bitboards [15]uint64, c Color) uint64 {
+	return genSliderAttacks(bitboards, c) | genLeaperAttacks(bitboards, c)
 }
 
-// genCheckingPieces generates the bitboard of all pieces of the
+// GenCheckingPieces generates the bitboard of all pieces of the
 // specified color that are delivering a check to the enemy king.
-func genCheckingPieces(bitboards [15]uint64, c Color) (checkers uint64) {
+func GenCheckingPieces(bitboards [15]uint64, c Color) (checkers uint64) {
 	occupancy := bitboards[14]
 	// Color offset.
 	off := 6 * c
@@ -548,7 +519,7 @@ func genAttackRay(king int, checker int) (ray uint64) {
 		dirFile = -1
 	}
 
-	dst := 8*(dstRank+dirRank) + (dstFile + dirFile)
+	dst := 8*(dstRank-dirRank) + (dstFile - dirFile)
 	square := 8*(srcRank+dirRank) + (srcFile + dirFile)
 
 	for square != dst {
@@ -563,33 +534,70 @@ func genAttackRay(king int, checker int) (ray uint64) {
 
 // genPinnedPiece generates the bitboard of all pinned pieces of the
 // specified color. The main purpose of this function is to generate
-// a bitboard of pieces which are forbidden to move.
+// a bitboard of pieces which can expose the king to check while moving.
+// TODO: fix
 func genPinnedPieces(bitboards [15]uint64, c Color) uint64 {
-	// 1. Generate attacks for the enemy sliding pieces.
-	off := 6 * (1 ^ c)
-	occupancy := bitboards[14]
-	attacks := uint64(0)
+	// Generate attacks for the enemy sliding pieces.
+	attacks := genSliderAttacks(bitboards, 1^c)
+
+	// Generate sliding pseudo attacks from the allied king position.
+	king := bitboards[PieceWKing+6*c]
+	pseudoAttacks := lookupQueenAttacks(bitScan(king), bitboards[14])
+
+	// Calculate the intersection between the attack rays which
+	// land on the allied pieces.
+	intersect := attacks & pseudoAttacks & bitboards[12+c]
+	if intersect != 0 {
+		// Determine the direction of the attack ray.
+		pin := bitScan(intersect)
+		kingSq := bitScan(king)
+		pinnerSq := bitScan()
+
+		dir := dstRank - d
+		if dstRank {
+
+		}
+
+	}
+
+	return intersect
+}
+
+func genSliderAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
+	off := 6 * c
+
 	for i := PieceWBishop + off; i <= PieceWQueen+off; i++ {
-		for bitboards[i] > 0 {
-			slider := popLSB(&bitboards[i])
+		bitboard := bitboards[i]
+		for bitboard > 0 {
+			slider := popLSB(&bitboard)
 
 			switch i {
 			case PieceWBishop, PieceBBishop:
-				attacks |= lookupBishopAttacks(slider, occupancy)
+				attacks |= lookupBishopAttacks(slider, bitboards[14])
 			case PieceWRook, PieceBRook:
-				attacks |= lookupRookAttacks(slider, occupancy)
+				attacks |= lookupRookAttacks(slider, bitboards[14])
 			case PieceWQueen, PieceBQueen:
-				attacks |= lookupQueenAttacks(slider, occupancy)
+				attacks |= lookupQueenAttacks(slider, bitboards[14])
 			}
 		}
 	}
 
-	// 2. Generate sliding pseudo attacks from the allied king position.
-	king := bitboards[PieceWKing+6*c]
-	pseudoAttacks := lookupQueenAttacks(bitScan(king), occupancy)
+	return attacks
+}
 
-	// 3. Return the intersection between the attack bitboards.
-	return pseudoAttacks & attacks & bitboards[12+c]
+func genLeaperAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
+	off := 6 * c
+	allies := bitboards[12+c]
+	enemies := bitboards[12+(1^c)]
+
+	//  Exclude empty squares and squares occupied by allied pieces.
+	attacks |= genPawnAttacks(bitboards[PieceWPawn+off], c) & enemies
+	// Exclude squares occupied by allied pieces.
+	attacks |= genKnightAttacks(bitboards[PieceWKnight+off]) & (^allies)
+	//  Exclude squares occupied by allied pieces.
+	attacks |= genKingAttacks(bitboards[PieceWKing+off]) & (^allies)
+
+	return attacks
 }
 
 // genPawnAttacks returns a bitboard of squares attacked by pawns.

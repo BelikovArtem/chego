@@ -42,13 +42,13 @@ func TestMakeMove(t *testing.T) {
 		{
 			"white O-O",
 			"2bqkbnr/4pppp/8/8/8/3N1N2/P1PP1PPP/RqBQK2R w KQkq - 0 1",
-			"2bqkbnr/4pppp/8/8/8/3N1N2/P1PP1PPP/RqBQ1RK1 b kq - 0 1",
+			"2bqkbnr/4pppp/8/8/8/3N1N2/P1PP1PPP/RqBQ1RK1 b kq - 1 1",
 			NewMove(SG1, SE1, MoveCastling),
 		},
 		{
 			"black O-O-O",
 			"r3kbnr/4pppp/8/8/8/3N1N2/P1PP1PPP/RqBQ1RK1 b KQkq - 0 1",
-			"2kr1bnr/4pppp/8/8/8/3N1N2/P1PP1PPP/RqBQ1RK1 w KQ - 0 2",
+			"2kr1bnr/4pppp/8/8/8/3N1N2/P1PP1PPP/RqBQ1RK1 w KQ - 1 2",
 			NewMove(SC8, SE8, MoveCastling),
 		},
 		{

@@ -13,8 +13,20 @@ import (
 )
 
 // Test positions. See https://www.chessprogramming.org/Perft
-const initFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-const test = "rnbqkbnr/1ppppppp/8/P7/8/8/P1PPPPPP/RNBQKBNR b KQkq - 0 1"
+const initFEN = "rnbqkbnr/1ppppppp/p7/8/8/BP6/P1PPPPPP/RN1QKBNR b KQkq - 0 2"
+
+// result information will be printed is the perft is executed with the
+// verbose flag.
+type result struct {
+	nodes        int
+	captures     int
+	epCaptures   int
+	castles      int
+	promotions   int
+	checks       int
+	doubleChecks int
+	checkmates   int
+}
 
 // perft is a debugging function that walks through the move generation
 // tree of strictly legal moves to a given depth and counts the number of
@@ -22,26 +34,22 @@ const test = "rnbqkbnr/1ppppppp/8/P7/8/8/P1PPPPPP/RNBQKBNR b KQkq - 0 1"
 // predetermined values.
 //
 // See https://www.chessprogramming.org/Perft_Results
-func perft(p chego.Position, depth int, isRoot bool) uint64 {
+func perft(p *chego.Position, depth int) int {
 	if depth == 0 {
 		return 1
 	}
 
-	nodes := uint64(0)
+	nodes := 0
 	l := chego.MoveList{}
 
-	chego.GenLegalMoves(p, &l)
+	chego.GenLegalMoves(*p, &l)
 
-	for i := 0; i < int(l.LastMoveIndex); i++ {
+	for i := range l.LastMoveIndex {
 		m := l.Moves[i]
 
 		p.MakeMove(m)
 
-		cnt := perft(p, depth-1, false)
-		if isRoot {
-			log.Printf("%s %d", chego.Move2UCI(m), cnt)
-		}
-		nodes += cnt
+		nodes += perft(p, depth-1)
 
 		p.UndoMove()
 	}
@@ -49,25 +57,108 @@ func perft(p chego.Position, depth int, isRoot bool) uint64 {
 	return nodes
 }
 
-// main calls the Perft function and measures it's execution time.
+// perftVerbose follows the same principle as the perft function, except it
+// writes detailed move debugging information to r. Use this function to debug
+// and find invalid branches in the move generation tree,
+// not to measure performance.
+func perftVerbose(p *chego.Position, depth int, r *result, isRoot bool) int {
+	if depth == 0 {
+		return 1
+	}
+
+	l := chego.MoveList{}
+
+	chego.GenLegalMoves(*p, &l)
+	if l.LastMoveIndex == 0 {
+		r.checkmates++
+	}
+
+	nodes := 0
+
+	for i := range l.LastMoveIndex {
+		m := l.Moves[i]
+
+		if p.GetPieceFromSquare(1<<m.To()) != chego.PieceNone {
+			r.captures++
+		}
+
+		p.MakeMove(m)
+
+		checkers := chego.GenCheckingPieces(p.Bitboards, 1^p.ActiveColor)
+		if checkers > 0 {
+			r.checks++
+		}
+		if chego.CountBits(checkers) > 1 {
+			r.doubleChecks++
+		}
+
+		cnt := perftVerbose(p, depth-1, r, false)
+		if isRoot {
+			log.Printf("%s %d", chego.Move2UCI(m), cnt)
+		}
+		nodes += cnt
+
+		switch m.Type() {
+		case chego.MoveCastling:
+			r.castles++
+		case chego.MoveEnPassant:
+			r.epCaptures++
+		case chego.MovePromotion:
+			r.promotions++
+		}
+
+		p.UndoMove()
+	}
+
+	return nodes
+}
+
+// main runs the perft and measures it's execution time.
 func main() {
+	// It is important to initialize the attack tables.
+	// Otherwise, perft will not work.
 	chego.InitAttackTables()
 
 	depth := flag.Int("depth", 5, "Performance test depth")
+	verbose := flag.Bool("verbose", false, "Wether to print the debug info")
+
 	flag.Parse()
 
-	nodes := uint64(0)
+	r := &result{}
 
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
-		log.Printf("Nodes reached: %d", nodes)
-		log.Printf("Elapsed time: %d ns", elapsed.Nanoseconds())
+
+		if *verbose {
+			log.Printf("\nRoot position:\n%s\n\n\t%s\n\n",
+				position(chego.ParseFEN(initFEN)), initFEN)
+			log.Printf("\t%d\t%d\t\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t",
+				*depth,
+				r.nodes,
+				r.captures,
+				r.epCaptures,
+				r.castles,
+				r.promotions,
+				r.checks,
+				r.doubleChecks,
+				r.checkmates,
+			)
+			log.Printf("Elapsed time: %d ns", elapsed.Nanoseconds())
+		} else {
+
+			log.Printf("Nodes reached: %d", r.nodes)
+			log.Printf("Elapsed time: %d ns", elapsed.Nanoseconds())
+		}
 	}()
 
-	p := chego.ParseFEN(test)
+	p := chego.ParseFEN(initFEN)
 
-	nodes = perft(p, *depth, true)
+	if *verbose {
+		r.nodes = perftVerbose(&p, *depth, r, true)
+	} else {
+		r.nodes = perft(&p, *depth)
+	}
 }
 
 // position formats a full chess position into a string.
