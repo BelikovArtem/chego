@@ -13,7 +13,7 @@ import (
 )
 
 // Test positions. See https://www.chessprogramming.org/Perft
-const initFEN = "rnbqkbnr/1ppppppp/p7/8/8/BP6/P1PPPPPP/RN1QKBNR b KQkq - 0 2"
+const initFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // result information will be printed is the perft is executed with the
 // verbose flag.
@@ -75,6 +75,7 @@ func perftVerbose(p *chego.Position, depth int, r *result, isRoot bool) int {
 
 	nodes := 0
 
+	c := p.ActiveColor
 	for i := range l.LastMoveIndex {
 		m := l.Moves[i]
 
@@ -84,7 +85,7 @@ func perftVerbose(p *chego.Position, depth int, r *result, isRoot bool) int {
 
 		p.MakeMove(m)
 
-		checkers := chego.GenCheckingPieces(p.Bitboards, 1^p.ActiveColor)
+		checkers := chego.GenCheckingPieces(p.Bitboards, 1^c)
 		if checkers > 0 {
 			r.checks++
 		}
@@ -119,7 +120,7 @@ func main() {
 	// Otherwise, perft will not work.
 	chego.InitAttackTables()
 
-	depth := flag.Int("depth", 5, "Performance test depth")
+	depth := flag.Int("depth", 2, "Performance test depth")
 	verbose := flag.Bool("verbose", false, "Wether to print the debug info")
 
 	flag.Parse()

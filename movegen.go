@@ -211,6 +211,9 @@ var (
 	// 2 : Black O-O castling path.
 	// 3 : Black O-O-O castling path.
 	castlingPath = [4]uint64{
+		0x70, 0x1E, 0x7000000000000000, 0x1E00000000000000,
+	}
+	castlingAttackPath = [4]uint64{
 		0x70, 0x1C, 0x7000000000000000, 0x1C00000000000000,
 	}
 )
@@ -253,92 +256,175 @@ func InitAttackTables() {
 	}
 }
 
-// GenLegalMoves generates legal moves for the currently active color.
-// It generetes strictly legal moves at the first place, since filtering
-// down pseudo-legal moves is an expensive task.
 func GenLegalMoves(p Position, l *MoveList) {
-	l.LastMoveIndex = 0
+	checkers := GenCheckingPieces(p.Bitboards, 1^p.ActiveColor)
 
-	off := 6 * p.ActiveColor
-	eoff := 6 * (1 ^ p.ActiveColor)
+	genKingMoves(p, l)
 
-	king := bitScan(p.Bitboards[PieceWKing+off])
-
-	// 1. Generate king legal moves, since if we are in double
-	// check, nobody except the king can move.
-	genKingMoves(&p, l)
-
-	pieces := GenCheckingPieces(p.Bitboards, 1^p.ActiveColor)
-	// Only king can move if there is a double check.
-	// See https://en.wikipedia.org/wiki/Double_check
-	if pieces > 1 {
+	if CountBits(checkers) > 2 {
 		return
 	}
 
-	legalDests := uint64(ALL_SQUARES)
+	pseudoLegal := MoveList{}
 
-	if pieces == 1 {
-		// The are 3 types of legal moves in a single check position:
-		//  1. Move the king out of check.
-		//  2. Capture the checking piece.
-		//  3. Block the checking piece (if being checked by a sliding piece).
-		legalDests = pieces
+	genPawnMoves(p, &pseudoLegal)
 
-		piece := p.GetPieceFromSquare(pieces)
-		// If being checked by a sliding piece.
-		eoff := 6 * (1 ^ p.ActiveColor)
-		if piece >= PieceWBishop+eoff && piece <= PieceWQueen+eoff {
-			checker := bitScan(pieces)
-			// Add squares which help to block the checking piece.
-			legalDests |= genAttackRay(king, checker)
+	genNormalMoves(p, &pseudoLegal)
+
+	c := p.ActiveColor
+	for i := range pseudoLegal.LastMoveIndex {
+		m := pseudoLegal.Moves[i]
+
+		p.MakeMove(m)
+
+		if GenCheckingPieces(p.Bitboards, 1^c) == 0 {
+			l.Push(m)
 		}
+
+		p.UndoMove()
+	}
+}
+
+// GenCheckingPieces generates the bitboard of all pieces of the
+// specified color that are delivering a check to the enemy king.
+func GenCheckingPieces(bitboards [15]uint64, c Color) (checkers uint64) {
+	occupancy := bitboards[14]
+
+	king := bitScan(bitboards[PieceWKing+(1^c)])
+
+	checkers |= pawnAttacks[1^c][king] & bitboards[PieceWPawn+c]
+
+	checkers |= knightAttacks[king] & bitboards[PieceWKnight+c]
+
+	checkers |= lookupBishopAttacks(king, occupancy) &
+		bitboards[PieceWBishop+c]
+
+	checkers |= lookupRookAttacks(king, occupancy) &
+		bitboards[PieceWRook+c]
+
+	checkers |= lookupQueenAttacks(king, occupancy) &
+		bitboards[PieceWQueen+c]
+
+	return checkers
+}
+
+// genKingMoves appends legal moves for the king on
+// the given position to the specified move list.
+// Handles special king move - castling.
+func genKingMoves(p Position, l *MoveList) {
+	occupancy := p.Bitboards[14]
+	allies := p.Bitboards[12+p.ActiveColor]
+	kingBB := p.Bitboards[PieceWKing+p.ActiveColor]
+	p.removePiece(PieceWKing+p.ActiveColor, kingBB)
+	attacks := genAttacks(p.Bitboards, 1^p.ActiveColor)
+	p.removePiece(PieceWKing+p.ActiveColor, kingBB)
+	king := bitScan(kingBB)
+
+	dests := kingAttacks[king] & (^attacks) & (^allies)
+
+	for dests > 0 {
+		l.Push(NewMove(popLSB(&dests), king, MoveNormal))
 	}
 
-	// 2. Generate pinned pieces legal moves.
-	pinned := genPinnedPieces(p.Bitboards, p.ActiveColor)
-	for pinned > 0 {
-		from := popLSB(&pinned)
-		square := uint64(1 << from)
-		piece := p.GetPieceFromSquare(square)
+	occupancy ^= kingBB
+	// Handle castling.
+	if p.ActiveColor == ColorWhite {
+		if p.CanCastle(CastlingWhiteShort, attacks, occupancy) &&
+			p.Bitboards[PieceWRook]&H1 != 0 {
+			l.Push(NewMove(SG1, king, MoveCastling))
+		}
+		if p.CanCastle(CastlingWhiteLong, attacks, occupancy) &&
+			p.Bitboards[PieceWRook]&A1 != 0 {
+			l.Push(NewMove(SC1, king, MoveCastling))
+		}
+	} else {
+		if p.CanCastle(CastlingBlackShort, attacks, occupancy) &&
+			p.Bitboards[PieceBRook]&H8 != 0 {
+			l.Push(NewMove(SG8, king, MoveCastling))
+		}
+		if p.CanCastle(CastlingBlackLong, attacks, occupancy) &&
+			p.Bitboards[PieceBRook]&A8 != 0 {
+			l.Push(NewMove(SC8, king, MoveCastling))
+		}
+	}
+}
 
-		// Remove the pinned piece from the board.
-		p.Bitboards[piece] ^= square
+// genPawnMoves appends pseudo-legal moves for a pawns to the given move list.
+// Handles special pawn move - en passant.
+func genPawnMoves(p Position, l *MoveList) {
+	occupancy := p.Bitboards[14]
+	ep := uint64(0)
+	if p.EPTarget > 0 {
+		ep = 1 << p.EPTarget
+	}
+	enemies := p.Bitboards[12+(1^p.ActiveColor)]
+	pawns := p.Bitboards[PieceWPawn+p.ActiveColor]
 
-		// Generate the attacks from the enemy's pinning piece.
-		checkers := genCheckingPieces(p.Bitboards, 1^p.ActiveColor)
-		for checkers > 0 {
-			checker := popLSB(&checkers)
-			ray := genAttackRay(king, checker)
+	// Determine movement direction.
+	dir, initRank, promoRank := 8, RANK_2, RANK_8
+	if p.ActiveColor == ColorBlack {
+		dir = -8
+		initRank = RANK_7
+		promoRank = RANK_1
+	}
 
-			// Append legal moves for the pinned piece.
-			for ray > 0 {
-				l.Push(NewMove(popLSB(&ray), from, MoveNormal))
+	for pawns > 0 {
+		pawn := popLSB(&pawns)
+		square := uint64(1 << pawn)
+
+		fwd, dblFwd := pawn+dir, pawn+2*dir
+		// If the pawn can move forward.
+		fwdBB := uint64(1 << fwd)
+		if fwdBB&occupancy == 0 {
+			// Check if the move is promotion.
+			if fwdBB&promoRank != 0 {
+				l.Push(NewPromotionMove(fwd, pawn, PromotionKnight))
+				l.Push(NewPromotionMove(fwd, pawn, PromotionBishop))
+				l.Push(NewPromotionMove(fwd, pawn, PromotionRook))
+				l.Push(NewPromotionMove(fwd, pawn, PromotionQueen))
+			} else {
+				l.Push(NewMove(fwd, pawn, MoveNormal))
+			}
+			// If the pawn is standing on its initial rank and can move
+			// double forward.
+			if square&initRank != 0 && 1<<dblFwd&occupancy == 0 {
+				l.Push(NewMove(dblFwd, pawn, MoveNormal))
 			}
 		}
 
-		// Restore the board state.
-		p.Bitboards[piece] |= square
+		// Handle pawn attacks. Pawn can only capture enemy pieces
+		// or the en passant target square.
+		attacks := pawnAttacks[p.ActiveColor][pawn] & (enemies | ep)
+		for attacks > 0 {
+			to := popLSB(&attacks)
+			// Handle capture promotion.
+			if 1<<to&promoRank != 0 {
+				l.Push(NewPromotionMove(to, pawn, PromotionKnight))
+				l.Push(NewPromotionMove(to, pawn, PromotionBishop))
+				l.Push(NewPromotionMove(to, pawn, PromotionRook))
+				l.Push(NewPromotionMove(to, pawn, PromotionQueen))
+			} else if 1<<to&ep != 0 {
+				l.Push(NewMove(to, pawn, MoveEnPassant))
+			} else {
+				l.Push(NewMove(to, pawn, MoveNormal))
+			}
+		}
 	}
+}
 
-	// 3. Generate moves for non-pinned pieces.
-	allies := p.Bitboards[12+p.ActiveColor]
+// genPawnMoves appends pseudo-legal moves for knights, bishops,
+// rooks, and queens to the given move list.
+func genNormalMoves(p Position, l *MoveList) {
+	c := p.ActiveColor
+	allies := p.Bitboards[12+c]
 	occupancy := p.Bitboards[14]
 
-	// Genereate legal moves for pawns, excluding the pinned ones.
-	pawns := p.Bitboards[PieceWPawn+off] & (^pinned)
-	for pawns > 0 {
-		from := popLSB(&pawns)
-		genPawnMoves(p.Bitboards, from, 1<<p.EPTarget, p.ActiveColor, l)
-	}
-
-	// Generate legal moves for knights, bishops, rooks, and queens,
-	// excluding the pinned ones.
-	for i := PieceWKnight + off; i <= PieceWQueen+off; i++ {
-		pieces := p.Bitboards[i] & (^pinned)
+	for i := PieceWKnight + c; i <= PieceWQueen+c; i += 2 {
+		pieces := p.Bitboards[i]
 		for pieces > 0 {
 			from := popLSB(&pieces)
-			dests := uint64(0)
 
+			dests := uint64(0)
 			switch i {
 			case PieceWKnight, PieceBKnight:
 				dests |= knightAttacks[from]
@@ -349,114 +435,11 @@ func GenLegalMoves(p Position, l *MoveList) {
 			case PieceWQueen, PieceBQueen:
 				dests |= lookupQueenAttacks(from, occupancy)
 			}
-			// Take into accout only legal destinations if the
-			// king is being checked.
-			dests &= legalDests
 
+			dests &= ^allies
 			for dests > 0 {
-				to := popLSB(&dests)
-				if 1<<to&allies == 0 {
-					l.Push(NewMove(to, from, MoveNormal))
-				}
+				l.Push(NewMove(popLSB(&dests), from, MoveNormal))
 			}
-			genNormalMoves(from, i, allies, occupancy, l)
-		}
-	}
-}
-
-// genKingMoves appends legal moves for the king on
-// the given position to the specified move list.
-// Handles special king move - castling.
-func genKingMoves(p *Position, l *MoveList) {
-	c := p.ActiveColor
-
-	attacks := genAttacks(p.Bitboards, c^1)
-
-	king := bitScan(p.Bitboards[PieceWKing+6*c])
-	occupancy := p.Bitboards[14] & ^(1 << king)
-	allies := p.Bitboards[12+c]
-
-	// Exclude the attacked squares to forbit
-	// the king to move on them.
-	dests := kingAttacks[king] & (^attacks) & (^allies)
-	for dests > 0 {
-		to := popLSB(&dests)
-		l.Push(NewMove(to, king, MoveNormal))
-	}
-
-	// Handle castling.
-	if c == ColorWhite {
-		if p.CanCastle(CastlingWhiteShort, attacks, occupancy) {
-			l.Push(NewMove(SG1, king, MoveCastling))
-		}
-		if p.CanCastle(CastlingWhiteLong, attacks, occupancy) {
-			l.Push(NewMove(SC1, king, MoveCastling))
-		}
-	} else {
-		if p.CanCastle(CastlingBlackShort, attacks, occupancy) {
-			l.Push(NewMove(SG8, king, MoveCastling))
-		}
-		if p.CanCastle(CastlingBlackLong, attacks, occupancy) {
-			l.Push(NewMove(SC1, king, MoveCastling))
-		}
-	}
-}
-
-// genPawnMoves appends legal moves for a pawn to the given move list.
-// Handles special pawn move - en passant. Pinned pawns must be excluded
-// before calling this function.
-func genPawnMoves(bitboards [15]uint64, pawn int, epTarget uint64,
-	c Color, l *MoveList) {
-	enemies := bitboards[12+(1^c)]
-	occupancy := bitboards[14]
-	square := uint64(1 << pawn)
-	// Determine movement direction.
-	dir, initRank, promoRank := 8, RANK_2, RANK_8
-	if c == ColorBlack {
-		dir = -8
-		initRank = RANK_7
-		promoRank = RANK_8
-	}
-
-	fwd, dblFwd := pawn+dir, pawn+2*dir
-
-	// If the pawn can move forward.
-	fwdBB := uint64(1 << fwd)
-	if fwdBB&occupancy == 0 {
-		// Check if the move is promotion.
-		if fwdBB&promoRank != 0 {
-			l.Push(NewMove(fwd, pawn, MovePromotion))
-		} else {
-			l.Push(NewMove(fwd, pawn, MoveNormal))
-		}
-
-		// If the pawn is standing on its initial rank and can move
-		// double forward.
-		if square&initRank != 0 && 1<<dblFwd&occupancy == 0 {
-			l.Push(NewMove(dblFwd, pawn, MoveNormal))
-		}
-	}
-
-	// Handle pawn attacks. Pawn can only capture enemy pieces
-	// or the en passant target square.
-	attacks := pawnAttacks[c][pawn] & (enemies | epTarget)
-	for attacks > 0 {
-		to := popLSB(&attacks)
-		// Handle capture promotion.
-		if 1<<to&promoRank != 0 {
-			l.Push(NewMove(to, pawn, MovePromotion))
-		} else if 1<<to&epTarget != 0 {
-			// Making en passant move may expose the discovered check.
-			// There may be two pawns, so the genPinnedPieces won't determine
-			// that there is a pin.
-
-			// Remove the moving pawn and captured pawn from the board.
-			// If there are no checkers, add the move.
-			if genCheckingPieces(bitboards, c) == 0 {
-				l.Push(NewMove(to, pawn, MoveEnPassant))
-			}
-		} else {
-			l.Push(NewMove(to, pawn, MoveNormal))
 		}
 	}
 }
@@ -469,104 +452,8 @@ func genPawnMoves(bitboards [15]uint64, pawn int, epTarget uint64,
 // NOTE: The king must be excluded from the occupancy (bitboards[14])
 // bitboard to avoid blocking the attacks of slider pieces.
 // Otherwise, the king may appear to be able to move into check.
-func genAttacks(bitboards [15]uint64, c Color) uint64 {
-	return genSliderAttacks(bitboards, c) | genLeaperAttacks(bitboards, c)
-}
-
-// GenCheckingPieces generates the bitboard of all pieces of the
-// specified color that are delivering a check to the enemy king.
-func GenCheckingPieces(bitboards [15]uint64, c Color) (checkers uint64) {
-	occupancy := bitboards[14]
-	// Color offset.
-	off := 6 * c
-
-	king := bitScan(bitboards[PieceWKing+6*(1^c)])
-
-	checkers |= pawnAttacks[c][king] & bitboards[PieceWPawn+off]
-
-	checkers |= knightAttacks[king] & bitboards[PieceWKnight+off]
-
-	checkers |= lookupBishopAttacks(king, occupancy) &
-		bitboards[PieceWBishop+off]
-
-	checkers |= lookupRookAttacks(king, occupancy) &
-		bitboards[PieceWRook+off]
-
-	checkers |= lookupQueenAttacks(king, occupancy) &
-		bitboards[PieceWQueen+off]
-
-	return checkers
-}
-
-// genAttackRay generates the bitboard of squares between
-// the checker and the king, excluding the king and the checking piece.
-// The main purpose of this function is to generate a bitboard
-// of squares that pieces can move to in order to evade check.
-func genAttackRay(king int, checker int) (ray uint64) {
-	dstFile, dstRank := king%8, king/8
-	srcFile, srcRank := checker%8, checker/8
-	// Determine ray direction.
-	dirRank := 0
-	if dstRank > srcRank {
-		dirRank = 1
-	} else if dstRank < srcRank {
-		dirRank = -1
-	}
-	dirFile := 0
-	if dstFile > srcFile {
-		dirFile = 1
-	} else {
-		dirFile = -1
-	}
-
-	dst := 8*(dstRank-dirRank) + (dstFile - dirFile)
-	square := 8*(srcRank+dirRank) + (srcFile + dirFile)
-
-	for square != dst {
-		ray |= 1 << square
-		srcRank += dirRank
-		srcFile += dirFile
-		square = 8*(srcRank+dirRank) + (srcFile + dirFile)
-	}
-
-	return ray
-}
-
-// genPinnedPiece generates the bitboard of all pinned pieces of the
-// specified color. The main purpose of this function is to generate
-// a bitboard of pieces which can expose the king to check while moving.
-// TODO: fix
-func genPinnedPieces(bitboards [15]uint64, c Color) uint64 {
-	// Generate attacks for the enemy sliding pieces.
-	attacks := genSliderAttacks(bitboards, 1^c)
-
-	// Generate sliding pseudo attacks from the allied king position.
-	king := bitboards[PieceWKing+6*c]
-	pseudoAttacks := lookupQueenAttacks(bitScan(king), bitboards[14])
-
-	// Calculate the intersection between the attack rays which
-	// land on the allied pieces.
-	intersect := attacks & pseudoAttacks & bitboards[12+c]
-	if intersect != 0 {
-		// Determine the direction of the attack ray.
-		pin := bitScan(intersect)
-		kingSq := bitScan(king)
-		pinnerSq := bitScan()
-
-		dir := dstRank - d
-		if dstRank {
-
-		}
-
-	}
-
-	return intersect
-}
-
-func genSliderAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
-	off := 6 * c
-
-	for i := PieceWBishop + off; i <= PieceWQueen+off; i++ {
+func genAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
+	for i := PieceWBishop + c; i <= PieceWQueen+c; i += 2 {
 		bitboard := bitboards[i]
 		for bitboard > 0 {
 			slider := popLSB(&bitboard)
@@ -582,26 +469,16 @@ func genSliderAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
 		}
 	}
 
-	return attacks
-}
-
-func genLeaperAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
-	off := 6 * c
-	allies := bitboards[12+c]
-	enemies := bitboards[12+(1^c)]
-
 	//  Exclude empty squares and squares occupied by allied pieces.
-	attacks |= genPawnAttacks(bitboards[PieceWPawn+off], c) & enemies
+	attacks |= genPawnAttacks(bitboards[PieceWPawn+c], c)
 	// Exclude squares occupied by allied pieces.
-	attacks |= genKnightAttacks(bitboards[PieceWKnight+off]) & (^allies)
+	attacks |= genKnightAttacks(bitboards[PieceWKnight+c])
 	//  Exclude squares occupied by allied pieces.
-	attacks |= genKingAttacks(bitboards[PieceWKing+off]) & (^allies)
+	attacks |= genKingAttacks(bitboards[PieceWKing+c])
 
 	return attacks
 }
 
-// genPawnAttacks returns a bitboard of squares attacked by pawns.
-//
 // Use this function only to generate attacks for multiple pawns
 // simultaneously. To get attacks for a single pawn, use the
 // pawnAttacks lookup table.

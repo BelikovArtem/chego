@@ -136,7 +136,7 @@ func ParseBitboards(piecePlacement string) (bitboards [15]uint64) {
 	square := 56
 
 	// Piece placement data describes each rank beginning from the eigth.
-	for i := 0; i < len(piecePlacement); i++ {
+	for i := range len(piecePlacement) {
 		char := piecePlacement[i]
 
 		if char == '/' { // Rank separator.
@@ -146,7 +146,7 @@ func ParseBitboards(piecePlacement string) (bitboards [15]uint64) {
 			// Convert byte to the integer it represents.
 			square += int(char - '0')
 		} else { // There is piece on a square.
-			var piece Piece // PieceWPawn by default.
+			piece := PieceWPawn
 			// Manual switch construction is ~3x faster than map approach.
 			switch char {
 			case 'N':
@@ -176,7 +176,7 @@ func ParseBitboards(piecePlacement string) (bitboards [15]uint64) {
 			bb := uint64(1 << square)
 
 			bitboards[piece] |= bb
-			if piece <= PieceWKing {
+			if piece%2 == 0 {
 				bitboards[12] |= bb
 			} else {
 				bitboards[13] |= bb
@@ -197,7 +197,7 @@ func SerializeBitboards(bitboards [15]uint64) string {
 	b := strings.Builder{}
 	b.Grow(20)
 
-	var board [64]byte
+	board := [64]byte{}
 
 	for i := 0; i <= PieceBKing; i++ {
 		// Go through all pieces on a bitboard.
@@ -245,7 +245,6 @@ func SerializeBitboards(bitboards [15]uint64) string {
 // Handles "-" as A1 square.
 func string2Square(str string) int {
 	square := 0
-
 	switch str[0] {
 	case 'b':
 		square = 1

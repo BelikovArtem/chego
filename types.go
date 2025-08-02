@@ -47,8 +47,8 @@ func (l *MoveList) Push(m Move) {
 var (
 	// PieceSymbols is used in fen, format, and uci packages.
 	PieceSymbols = [12]byte{
-		'P', 'N', 'B', 'R', 'Q', 'K',
-		'p', 'n', 'b', 'r', 'q', 'k',
+		'P', 'p', 'N', 'n', 'B', 'b',
+		'R', 'r', 'Q', 'q', 'K', 'k',
 	}
 	// Square2String is used in format and uci packages.
 	Square2String = [64]string{
@@ -69,16 +69,16 @@ type Piece = int
 
 const (
 	PieceWPawn Piece = iota
-	PieceWKnight
-	PieceWBishop
-	PieceWRook
-	PieceWQueen
-	PieceWKing
 	PieceBPawn
+	PieceWKnight
 	PieceBKnight
+	PieceWBishop
 	PieceBBishop
+	PieceWRook
 	PieceBRook
+	PieceWQueen
 	PieceBQueen
+	PieceWKing
 	PieceBKing
 	// To avoid magic numbers.
 	PieceNone = -1

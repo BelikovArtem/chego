@@ -14,9 +14,9 @@ func TestParseBitboards(t *testing.T) {
 			"Initial position",
 			"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
 			[15]uint64{
-				0xFF00, 0x42, 0x24, 0x81, 0x8, 0x10,
-				0xFF000000000000, 0x4200000000000000, 0x2400000000000000,
-				0x8100000000000000, 0x800000000000000, 0x1000000000000000,
+				0xFF00, 0xFF000000000000, 0x42, 0x4200000000000000,
+				0x24, 0x2400000000000000, 0x81, 0x8100000000000000,
+				0x8, 0x800000000000000, 0x10, 0x1000000000000000,
 				0xFFFF, 0xFFFF000000000000, 0xFFFF00000000FFFF,
 			},
 		},
@@ -24,17 +24,18 @@ func TestParseBitboards(t *testing.T) {
 			"Two rooks, two pawns",
 			"8/4p3/1PR5/8/4R3/8/4p3/8",
 			[15]uint64{
-				0x20000000000, 0x0, 0x0, 0x40010000000, 0x0, 0x0,
-				0x10000000001000, 0x0, 0x0, 0x0, 0x0, 0x0,
+				0x20000000000, 0x10000000001000, 0x0, 0x0,
+				0x0, 0x0, 0x40010000000, 0x0, 0x0, 0x0, 0x0, 0x0,
 				0x60010000000, 0x10000000001000, 0x10060010001000,
 			},
 		},
 	}
 
 	for _, tc := range testcases {
-		for piece, bitboard := range ParseBitboards(tc.fen) {
+		bitboards := ParseBitboards(tc.fen)
+		for piece, bitboard := range bitboards {
 			if tc.expected[piece] != bitboard {
-				t.Fatalf("expected %v\ngot %v", tc.expected, bitboard)
+				t.Fatalf("expected %v\ngot %v", tc.expected, bitboards)
 			}
 		}
 	}
@@ -49,16 +50,17 @@ func TestSerializeBitboards(t *testing.T) {
 		{
 			"Initial position",
 			[15]uint64{
-				0xFF00, 0x42, 0x24, 0x81, 0x8, 0x10,
-				0xFF000000000000, 0x4200000000000000, 0x2400000000000000,
-				0x8100000000000000, 0x800000000000000, 0x1000000000000000,
+				0xFF00, 0xFF000000000000, 0x42, 0x4200000000000000,
+				0x24, 0x2400000000000000, 0x81, 0x8100000000000000,
+				0x8, 0x800000000000000, 0x10, 0x1000000000000000,
 			}, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",
 		},
 		{
 			"Two rooks, two pawns",
 			[15]uint64{
-				0x20000000000, 0x0, 0x0, 0x40010000000, 0x0, 0x0,
-				0x10000000001000, 0x0, 0x0, 0x0, 0x0, 0x0,
+				0x20000000000, 0x10000000001000, 0x0, 0x0,
+				0x0, 0x0, 0x40010000000, 0x0, 0x0, 0x0, 0x0, 0x0,
+				0x60010000000, 0x10000000001000, 0x10060010001000,
 			}, "8/4p3/1PR5/8/4R3/8/4p3/8",
 		},
 	}

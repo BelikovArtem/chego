@@ -74,7 +74,7 @@ func BenchmarkGenKingMoves(b *testing.B) {
 	pos := ParseFEN("8/8/8/8/8/8/8/R3K2R w - - 0 1")
 
 	for b.Loop() {
-		genKingMoves(&pos, &MoveList{})
+		genKingMoves(pos, &MoveList{})
 	}
 }
 

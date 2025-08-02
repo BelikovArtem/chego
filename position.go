@@ -24,6 +24,9 @@ type Position struct {
 // Not only is the piece placement updated, but also the entire position,
 // including castling rights, en passant target, halfmove counter, fullmove
 // counter, and the active color.
+// TODO: search here
+// TODO: r3k2r/p1ppqpb1/bn2pnp1/3PN3/4P3/P4Q1p/1pPBBPPP/1R1K3R w KAkq - 0 1 in
+// this position the rook is still on a1 after moving somehow.
 func (p *Position) MakeMove(m Move) {
 	// Save the position to be able to undo the move.
 	p.prevPos = &Position{
@@ -89,12 +92,16 @@ func (p *Position) MakeMove(m Move) {
 		}
 
 	case MovePromotion:
-		// Color offset to correctly promote a piece.
-		off := 1
-		if piece == PieceBPawn {
-			off = 7
+		switch m.PromoPiece() {
+		case PromotionKnight:
+			p.placePiece(PieceWKnight+p.ActiveColor, to)
+		case PromotionBishop:
+			p.placePiece(PieceWBishop+p.ActiveColor, to)
+		case PromotionRook:
+			p.placePiece(PieceWRook+p.ActiveColor, to)
+		case PromotionQueen:
+			p.placePiece(PieceWQueen+p.ActiveColor, to)
 		}
-		p.placePiece(m.PromoPiece()+off, to)
 	}
 
 	// Reset the en passant target since the en passant capture
@@ -104,10 +111,10 @@ func (p *Position) MakeMove(m Move) {
 	switch piece {
 	// Set en passant target square is case of double pawn push.
 	case PieceWPawn, PieceBPawn:
-		if m.From()-m.To() == -16 {
-			p.EPTarget = m.To() - 8
-		} else if m.From()-m.To() == 16 {
+		if m.To()+16 == m.From() {
 			p.EPTarget = m.To() + 8
+		} else if m.To()-16 == m.From() {
+			p.EPTarget = m.To() - 8
 		}
 		// Reset the halfmove counter after pawn moves.
 		p.HalfmoveCnt = 0
@@ -169,9 +176,10 @@ func (p *Position) GetPieceFromSquare(square uint64) Piece {
 // side == 4 -> Black O-O.
 // side == 8 -> Black O-O-O.
 func (p *Position) CanCastle(side int, attacks, occupancy uint64) bool {
-	path := castlingPath[bitScan(uint64(side))]
+	c := bitScan(uint64(side))
+	path := castlingPath[c]
 	return p.CastlingRights&side != 0 &&
-		attacks&path == 0 &&
+		attacks&castlingAttackPath[c] == 0 &&
 		occupancy&path == 0
 }
 
@@ -181,7 +189,7 @@ func (p *Position) placePiece(piece Piece, square uint64) {
 	// Place the piece.
 	p.Bitboards[piece] |= square
 	// Update allies bitboard.
-	if piece <= PieceWKing { // White piece.
+	if piece%2 == 0 { // White piece.
 		p.Bitboards[12] |= square
 	} else { // Black piece.
 		p.Bitboards[13] |= square
@@ -200,7 +208,7 @@ func (p *Position) removePiece(piece Piece, square uint64) {
 	// Remove the piece.
 	p.Bitboards[piece] ^= square
 	// Update allies bitboard.
-	if piece < PieceWKing { // White piece.
+	if piece%2 == 0 { // White piece.
 		p.Bitboards[12] ^= square
 	} else {
 		p.Bitboards[13] ^= square

@@ -200,7 +200,7 @@ func (g *Game) calculateMaterial() int {
 			coefficient = 9
 		}
 
-		material += countBits(g.Position.Bitboards[pieceType]) * coefficient
+		material += CountBits(g.Position.Bitboards[pieceType]) * coefficient
 	}
 
 	return material
