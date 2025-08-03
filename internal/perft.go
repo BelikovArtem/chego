@@ -6,6 +6,8 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -34,24 +36,26 @@ type result struct {
 // predetermined values.
 //
 // See https://www.chessprogramming.org/Perft_Results
-func perft(p *chego.Position, depth int) int {
-	if depth == 0 {
-		return 1
+func perft(p chego.Position, depth int) int {
+	l := chego.MoveList{}
+	nodes := 0
+
+	chego.GenLegalMoves(p, &l)
+
+	if depth == 1 {
+		return int(l.LastMoveIndex)
 	}
 
-	nodes := 0
-	l := chego.MoveList{}
-
-	chego.GenLegalMoves(*p, &l)
-
+	var prev chego.Position
 	for i := range l.LastMoveIndex {
 		m := l.Moves[i]
 
+		prev = p
 		p.MakeMove(m)
 
 		nodes += perft(p, depth-1)
 
-		p.UndoMove()
+		p = prev
 	}
 
 	return nodes
@@ -61,21 +65,18 @@ func perft(p *chego.Position, depth int) int {
 // writes detailed move debugging information to r. Use this function to debug
 // and find invalid branches in the move generation tree,
 // not to measure performance.
-func perftVerbose(p *chego.Position, depth int, r *result, isRoot bool) int {
-	if depth == 0 {
-		return 1
-	}
-
+func perftVerbose(p chego.Position, depth int, r *result, isRoot bool) int {
 	l := chego.MoveList{}
-
-	chego.GenLegalMoves(*p, &l)
-	if l.LastMoveIndex == 0 {
-		r.checkmates++
-	}
-
 	nodes := 0
 
+	chego.GenLegalMoves(p, &l)
+
+	if depth == 1 {
+		return int(l.LastMoveIndex)
+	}
+
 	c := p.ActiveColor
+	var prev chego.Position
 	for i := range l.LastMoveIndex {
 		m := l.Moves[i]
 
@@ -83,17 +84,18 @@ func perftVerbose(p *chego.Position, depth int, r *result, isRoot bool) int {
 			r.captures++
 		}
 
+		prev = p
 		p.MakeMove(m)
 
-		checkers := chego.GenCheckingPieces(p.Bitboards, 1^c)
-		if checkers > 0 {
+		cnt := chego.GenChecksCounter(p.Bitboards, 1^c)
+		if cnt > 0 {
 			r.checks++
 		}
-		if chego.CountBits(checkers) > 1 {
+		if cnt > 1 {
 			r.doubleChecks++
 		}
 
-		cnt := perftVerbose(p, depth-1, r, false)
+		cnt = perftVerbose(p, depth-1, r, false)
 		if isRoot {
 			log.Printf("%s %d", chego.Move2UCI(m), cnt)
 		}
@@ -108,7 +110,7 @@ func perftVerbose(p *chego.Position, depth int, r *result, isRoot bool) int {
 			r.promotions++
 		}
 
-		p.UndoMove()
+		p = prev
 	}
 
 	return nodes
@@ -122,6 +124,8 @@ func main() {
 
 	depth := flag.Int("depth", 2, "Performance test depth")
 	verbose := flag.Bool("verbose", false, "Wether to print the debug info")
+	cpuprofile := flag.String("cpuprofile", "", "File to write a cpu profile")
+	memprofile := flag.String("memprofile", "", "File to write a memory profile")
 
 	flag.Parse()
 
@@ -155,10 +159,27 @@ func main() {
 
 	p := chego.ParseFEN(initFEN)
 
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.WriteHeapProfile(f)
+		defer f.Close()
+	}
+
 	if *verbose {
-		r.nodes = perftVerbose(&p, *depth, r, true)
+		r.nodes = perftVerbose(p, *depth, r, true)
 	} else {
-		r.nodes = perft(&p, *depth)
+		r.nodes = perft(p, *depth)
 	}
 }
 

@@ -12,33 +12,15 @@ type Position struct {
 	EPTarget       int
 	HalfmoveCnt    int
 	FullmoveCnt    int
-	// prevPos is nil by default.
-	prevPos *Position
 }
 
 // MakeMove modifies the position by applying the specified move.
 // It's a caller responsibility to ensure the legality of the move.
-// The position is saved in the prevPos field before making the move to
-// allow undo functionality.
 //
 // Not only is the piece placement updated, but also the entire position,
 // including castling rights, en passant target, halfmove counter, fullmove
 // counter, and the active color.
-// TODO: search here
-// TODO: r3k2r/p1ppqpb1/bn2pnp1/3PN3/4P3/P4Q1p/1pPBBPPP/1R1K3R w KAkq - 0 1 in
-// this position the rook is still on a1 after moving somehow.
 func (p *Position) MakeMove(m Move) {
-	// Save the position to be able to undo the move.
-	p.prevPos = &Position{
-		ActiveColor:    p.ActiveColor,
-		CastlingRights: p.CastlingRights,
-		EPTarget:       p.EPTarget,
-		HalfmoveCnt:    p.HalfmoveCnt,
-		FullmoveCnt:    p.FullmoveCnt,
-		prevPos:        p.prevPos,
-	}
-	copy(p.prevPos.Bitboards[:], p.Bitboards[:])
-
 	to := uint64(1 << m.To())
 	from := uint64(1 << m.From())
 	piece := p.GetPieceFromSquare(from)
@@ -151,19 +133,12 @@ func (p *Position) MakeMove(m Move) {
 	p.ActiveColor ^= 1
 }
 
-// UndoMove restores the position to the previous state, if it's not nil.
-func (p *Position) UndoMove() {
-	if p.prevPos != nil {
-		*p = *p.prevPos
-	}
-}
-
 // GetPieceFromSquare returns the type of the piece that stands
 // on the specified square, or [PieceNone] if the square is empty.
 func (p *Position) GetPieceFromSquare(square uint64) Piece {
-	for piece, bitboard := range p.Bitboards {
-		if square&bitboard != 0 {
-			return piece
+	for i := range p.Bitboards {
+		if square&p.Bitboards[i] != 0 {
+			return i
 		}
 	}
 	return PieceNone

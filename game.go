@@ -151,7 +151,7 @@ func (g *Game) IsInsufficientMaterial() bool {
 // NOTE: If there are no legal moves, but the king is not in check, the position
 // is a stalemate.
 func (g *Game) IsCheckmate() bool {
-	isKingInCheck := GenCheckingPieces(g.Position.Bitboards,
+	isKingInCheck := GenChecksCounter(g.Position.Bitboards,
 		1^g.Position.ActiveColor) > 0
 	return isKingInCheck && g.LegalMoves.LastMoveIndex == 0
 }

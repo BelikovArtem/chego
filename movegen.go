@@ -257,11 +257,9 @@ func InitAttackTables() {
 }
 
 func GenLegalMoves(p Position, l *MoveList) {
-	checkers := GenCheckingPieces(p.Bitboards, 1^p.ActiveColor)
-
 	genKingMoves(p, l)
 
-	if CountBits(checkers) > 2 {
+	if GenChecksCounter(p.Bitboards, 1^p.ActiveColor) > 2 {
 		return
 	}
 
@@ -272,77 +270,82 @@ func GenLegalMoves(p Position, l *MoveList) {
 	genNormalMoves(p, &pseudoLegal)
 
 	c := p.ActiveColor
+
+	var prev Position
 	for i := range pseudoLegal.LastMoveIndex {
-		m := pseudoLegal.Moves[i]
+		prev = p
 
-		p.MakeMove(m)
+		p.MakeMove(pseudoLegal.Moves[i])
 
-		if GenCheckingPieces(p.Bitboards, 1^c) == 0 {
-			l.Push(m)
+		if GenChecksCounter(p.Bitboards, 1^c) == 0 {
+			l.Push(pseudoLegal.Moves[i])
 		}
 
-		p.UndoMove()
+		p = prev
 	}
 }
 
-// GenCheckingPieces generates the bitboard of all pieces of the
+// GenChecksCounter returns the number of the pieces of the
 // specified color that are delivering a check to the enemy king.
-func GenCheckingPieces(bitboards [15]uint64, c Color) (checkers uint64) {
-	occupancy := bitboards[14]
-
+func GenChecksCounter(bitboards [15]uint64, c Color) (cnt int) {
 	king := bitScan(bitboards[PieceWKing+(1^c)])
 
-	checkers |= pawnAttacks[1^c][king] & bitboards[PieceWPawn+c]
+	if pawnAttacks[1^c][king]&bitboards[PieceWPawn+c] != 0 {
+		cnt++
+	}
 
-	checkers |= knightAttacks[king] & bitboards[PieceWKnight+c]
+	if knightAttacks[king]&bitboards[PieceWKnight+c] != 0 {
+		cnt++
+	}
 
-	checkers |= lookupBishopAttacks(king, occupancy) &
-		bitboards[PieceWBishop+c]
+	if lookupBishopAttacks(king, bitboards[14])&bitboards[PieceWBishop+c] != 0 {
+		cnt++
+	}
 
-	checkers |= lookupRookAttacks(king, occupancy) &
-		bitboards[PieceWRook+c]
+	if lookupRookAttacks(king, bitboards[14])&bitboards[PieceWRook+c] != 0 {
+		cnt++
+	}
 
-	checkers |= lookupQueenAttacks(king, occupancy) &
-		bitboards[PieceWQueen+c]
+	if lookupQueenAttacks(king, bitboards[14])&bitboards[PieceWQueen+c] != 0 {
+		cnt++
+	}
 
-	return checkers
+	return cnt
 }
 
 // genKingMoves appends legal moves for the king on
 // the given position to the specified move list.
 // Handles special king move - castling.
 func genKingMoves(p Position, l *MoveList) {
-	occupancy := p.Bitboards[14]
-	allies := p.Bitboards[12+p.ActiveColor]
 	kingBB := p.Bitboards[PieceWKing+p.ActiveColor]
 	p.removePiece(PieceWKing+p.ActiveColor, kingBB)
 	attacks := genAttacks(p.Bitboards, 1^p.ActiveColor)
 	p.removePiece(PieceWKing+p.ActiveColor, kingBB)
 	king := bitScan(kingBB)
 
-	dests := kingAttacks[king] & (^attacks) & (^allies)
+	dests := kingAttacks[king] & (^attacks) & (^p.Bitboards[12+p.ActiveColor])
 
 	for dests > 0 {
 		l.Push(NewMove(popLSB(&dests), king, MoveNormal))
 	}
 
-	occupancy ^= kingBB
+	p.Bitboards[14] ^= kingBB
 	// Handle castling.
 	if p.ActiveColor == ColorWhite {
-		if p.CanCastle(CastlingWhiteShort, attacks, occupancy) &&
+		if p.CanCastle(CastlingWhiteShort, attacks, p.Bitboards[14]) &&
 			p.Bitboards[PieceWRook]&H1 != 0 {
 			l.Push(NewMove(SG1, king, MoveCastling))
 		}
-		if p.CanCastle(CastlingWhiteLong, attacks, occupancy) &&
+		if p.CanCastle(CastlingWhiteLong, attacks, p.Bitboards[14]) &&
 			p.Bitboards[PieceWRook]&A1 != 0 {
 			l.Push(NewMove(SC1, king, MoveCastling))
 		}
 	} else {
-		if p.CanCastle(CastlingBlackShort, attacks, occupancy) &&
+		if p.CanCastle(CastlingBlackShort, attacks, p.Bitboards[14]) &&
 			p.Bitboards[PieceBRook]&H8 != 0 {
 			l.Push(NewMove(SG8, king, MoveCastling))
 		}
-		if p.CanCastle(CastlingBlackLong, attacks, occupancy) &&
+		if p.CanCastle(CastlingBlackLong, attacks, p.Bitboards[14]) &&
 			p.Bitboards[PieceBRook]&A8 != 0 {
 			l.Push(NewMove(SC8, king, MoveCastling))
 		}
