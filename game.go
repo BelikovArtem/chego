@@ -1,5 +1,6 @@
 // game.go impements chess game state management.
-// Make sure to call [InitAttackTables] ONCE before using functions from this file.
+// Make sure to call [InitAttackTables] ONCE before using
+// functions from this file.
 
 package chego
 
@@ -17,7 +18,8 @@ type Game struct {
 
 // CompletedMove represents a completed move.
 type CompletedMove struct {
-	// Game state after completing the move to enable move undo and state restoration.
+	// Board state after completing the move
+	// to enable move undo and state restoration.
 	FenString string
 	// Move itself.
 	Move Move
@@ -120,7 +122,7 @@ func (g *Game) IsThreefoldRepetition() bool {
 //  4. Both sides have a king and a knight.
 func (g *Game) IsInsufficientMaterial() bool {
 	// Bitmask for all dark squares.
-	var dark uint64 = 0xAA55AA55AA55AA55
+	dark := uint64(0xAA55AA55AA55AA55)
 	material := g.calculateMaterial()
 
 	if material == 0 {
@@ -158,54 +160,39 @@ func (g *Game) IsCheckmate() bool {
 	return isKingInCheck && g.LegalMoves.LastMoveIndex == 0
 }
 
-// GetLegalMoveIndex checks if the specified move is legal.
-// If it is, it returns the index of the legal move in the game.LegalMoves list.
-// If it isn't, it returns -1.
-//
-// NOTE: It also updates the promotion piece flag in the legal move,
-// so the player can promote to the desired piece.
-func (g *Game) GetLegalMoveIndex(m Move) int {
-	for i, legalMove := range g.LegalMoves.Moves {
-		if legalMove.From() == m.From() && legalMove.To() == m.To() {
-			if legalMove.Type() == MovePromotion {
-				promo := m.PromoPiece()
-				// Update promotion piece in case it is invalid.
-				if promo < PromotionKnight || promo > PromotionQueen {
-					promo = PromotionQueen
-				}
-				g.LegalMoves.Moves[i] = NewPromotionMove(m.To(), m.From(), promo)
-			}
-			return i
+// IsMoveLegal checks if the specified move is legal.
+func (g *Game) IsMoveLegal(m Move) bool {
+	for _, move := range g.LegalMoves.Moves {
+		if move == 0x0 {
+			return false
+		}
+		if move.From() == m.From() && move.To() == m.To() &&
+			move.Type() == m.Type() && move.PromoPiece() == m.PromoPiece() {
+			return true
 		}
 	}
-	return -1
+	return false
 }
 
 // calculateMaterial calculates the piece valies of each side.
 // Is used to determine a draw by insufficient material.
-func (g *Game) calculateMaterial() int {
-	var material int
-
-	for pieceType := PieceWPawn; pieceType < PieceBKing; pieceType++ {
-		if pieceType == PieceWKing {
-			continue
-		}
-
-		coefficient := 1
+func (g *Game) calculateMaterial() (mat int) {
+	coeff := 1
+	for pieceType := range PieceWKing {
 		switch pieceType {
 		case PieceWKnight, PieceBKnight,
 			PieceWBishop, PieceBBishop:
-			coefficient = 3
+			coeff = 3
 		case PieceWRook, PieceBRook:
-			coefficient = 5
+			coeff = 5
 		case PieceWQueen, PieceBQueen:
-			coefficient = 9
+			coeff = 9
 		}
 
-		material += CountBits(g.Position.Bitboards[pieceType]) * coefficient
+		mat += CountBits(g.Position.Bitboards[pieceType]) * coeff
 	}
 
-	return material
+	return mat
 }
 
 // repetitionKey generates a compact string representation of a
@@ -220,11 +207,11 @@ func repetitionKey(p Position, legalMoves MoveList) string {
 	keyBuilder.WriteByte(byte(p.CastlingRights))
 
 	for i := range legalMoves.LastMoveIndex {
-		move := legalMoves.Moves[i]
-		// Skip empty moves.
-		if move != 0 {
-			keyBuilder.WriteRune(rune(move))
+		if legalMoves.Moves[i] == 0 {
+			break
 		}
+
+		keyBuilder.WriteRune(rune(legalMoves.Moves[i]))
 	}
 
 	return keyBuilder.String()

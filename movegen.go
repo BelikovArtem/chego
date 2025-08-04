@@ -66,6 +66,8 @@ func InitAttackTables() {
 // GenLegalMoves generates legal moves for the currently active color
 // using copy-make approach.
 func GenLegalMoves(p Position, l *MoveList) {
+	l.LastMoveIndex = 0
+
 	genKingMoves(p, l)
 
 	if GenChecksCounter(p.Bitboards, 1^p.ActiveColor) > 2 {

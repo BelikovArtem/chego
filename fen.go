@@ -195,7 +195,7 @@ func ParseBitboards(piecePlacement string) (bitboards [15]uint64) {
 func SerializeBitboards(bitboards [15]uint64) string {
 	// Used to add characters to a string without extra memory allocations.
 	b := strings.Builder{}
-	b.Grow(20)
+	b.Grow(30)
 
 	board := [64]byte{}
 
