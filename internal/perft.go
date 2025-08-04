@@ -14,8 +14,8 @@ import (
 	"github.com/BelikovArtem/chego"
 )
 
-// Test positions. See https://www.chessprogramming.org/Perft
-const initFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+// Test position. See https://www.chessprogramming.org/Perft
+const initFEN = "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
 
 // result information will be printed is the perft is executed with the
 // verbose flag.
@@ -48,10 +48,8 @@ func perft(p chego.Position, depth int) int {
 
 	var prev chego.Position
 	for i := range l.LastMoveIndex {
-		m := l.Moves[i]
-
 		prev = p
-		p.MakeMove(m)
+		p.MakeMove(l.Moves[i])
 
 		nodes += perft(p, depth-1)
 
@@ -78,14 +76,12 @@ func perftVerbose(p chego.Position, depth int, r *result, isRoot bool) int {
 	c := p.ActiveColor
 	var prev chego.Position
 	for i := range l.LastMoveIndex {
-		m := l.Moves[i]
-
-		if p.GetPieceFromSquare(1<<m.To()) != chego.PieceNone {
+		if p.GetPieceFromSquare(1<<l.Moves[i].To()) != chego.PieceNone {
 			r.captures++
 		}
 
 		prev = p
-		p.MakeMove(m)
+		p.MakeMove(l.Moves[i])
 
 		cnt := chego.GenChecksCounter(p.Bitboards, 1^c)
 		if cnt > 0 {
@@ -97,11 +93,11 @@ func perftVerbose(p chego.Position, depth int, r *result, isRoot bool) int {
 
 		cnt = perftVerbose(p, depth-1, r, false)
 		if isRoot {
-			log.Printf("%s %d", chego.Move2UCI(m), cnt)
+			log.Printf("%s %d", chego.Move2UCI(l.Moves[i]), cnt)
 		}
 		nodes += cnt
 
-		switch m.Type() {
+		switch l.Moves[i].Type() {
 		case chego.MoveCastling:
 			r.castles++
 		case chego.MoveEnPassant:
@@ -131,6 +127,8 @@ func main() {
 
 	r := &result{}
 
+	p := chego.ParseFEN(initFEN)
+
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
@@ -156,8 +154,6 @@ func main() {
 			log.Printf("Elapsed time: %d ns", elapsed.Nanoseconds())
 		}
 	}()
-
-	p := chego.ParseFEN(initFEN)
 
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)

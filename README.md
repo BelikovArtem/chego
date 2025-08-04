@@ -63,7 +63,8 @@ To execute the performance test, run this command in the chego folder:
 go run ./internal/perft.go -depth {IntValue}
 ```	
 
-Chego generates 119060324 moves at depth 6 in 7 seconds on Intel i7-10750H CPU.
+Chego generates 119060324 moves at depth 6 in approximately 6 seconds
+on an Intel i7-10750H CPU.
 
 ## License
 

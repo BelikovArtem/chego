@@ -38,7 +38,7 @@ func ParseFEN(fen string) (p Position) {
 	}
 
 	// Parse castling rights.
-	for i := 0; i < len(fields[2]); i++ {
+	for i := range len(fields[2]) {
 		switch fields[2][i] {
 		case 'K':
 			p.CastlingRights |= CastlingWhiteShort
@@ -210,18 +210,16 @@ func SerializeBitboards(bitboards [15]uint64) string {
 
 	emptySquares := byte(0)
 	for rank := 7; rank >= 0; rank-- {
-		for file := 0; file < 8; file++ {
+		for file := range 8 {
 			square := 8*rank + file
-			char := board[square]
-
-			if char == 0 { // Empty square.
+			if board[square] == 0 { // Empty square.
 				emptySquares++
 			} else { // Piece on square.
 				if emptySquares > 0 {
 					b.WriteByte('0' + emptySquares)
 					emptySquares = 0
 				}
-				b.WriteByte(char)
+				b.WriteByte(board[square])
 			}
 
 			// To add rank separators.
