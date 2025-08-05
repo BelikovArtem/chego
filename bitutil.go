@@ -38,8 +38,7 @@ func popLSB(bitboard *uint64) int {
 }
 
 // CountBits returns the number of bits set within the bitboard.
-func CountBits(bitboard uint64) int {
-	cnt := 0
+func CountBits(bitboard uint64) (cnt int) {
 	for ; bitboard > 0; cnt++ {
 		bitboard &= bitboard - 1
 	}

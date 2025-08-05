@@ -8,6 +8,7 @@ import (
 func TestMain(m *testing.M) {
 	// Setup.
 	InitAttackTables()
+	InitZobristKeys()
 	// Tests and benchmarks execution.
 	os.Exit(m.Run())
 }
@@ -98,16 +99,16 @@ func TestIsThreefoldRepetition(t *testing.T) {
 		}, true},
 	}
 
-	for _, tc := range testcases {
-		game := NewGame()
+	for i, tc := range testcases {
+		g := NewGame()
 
 		for _, move := range tc.moveStack {
-			game.PushMove(move)
+			g.PushMove(move)
 		}
 
-		got := game.IsThreefoldRepetition()
+		got := g.IsThreefoldRepetition()
 		if tc.expected != got {
-			t.Fatalf("expected %t, got %t", tc.expected, got)
+			t.Fatalf("case %d failed: expected %t, got %t", i, tc.expected, got)
 		}
 	}
 }
@@ -196,8 +197,7 @@ func BenchmarkIsThreefoldRepetition(b *testing.B) {
 		game.PushMove(move)
 		GenLegalMoves(game.Position, &game.LegalMoves)
 		if i < len(moveStack)-1 {
-			key := repetitionKey(game.Position, game.LegalMoves)
-			game.Repetitions[key]++
+			game.Repetitions[zobristKey(game.Position)]++
 		}
 	}
 

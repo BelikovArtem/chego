@@ -144,13 +144,13 @@ func (p *Position) GetPieceFromSquare(square uint64) Piece {
 	return PieceNone
 }
 
-// CanCastle checks whether the king can peform
+// canCastle checks whether the king can peform
 // castling in the specified direction.
 // side == 1 -> White O-O.
 // side == 2 -> White O-O-O.
 // side == 4 -> Black O-O.
 // side == 8 -> Black O-O-O.
-func (p *Position) CanCastle(side int, attacks, occupancy uint64) bool {
+func (p *Position) canCastle(side int, attacks, occupancy uint64) bool {
 	c := bitScan(uint64(side))
 	path := castlingPath[c]
 	return p.CastlingRights&side != 0 &&

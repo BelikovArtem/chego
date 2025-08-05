@@ -141,20 +141,20 @@ func genKingMoves(p Position, l *MoveList) {
 	p.Bitboards[14] ^= kingBB
 	// Handle castling.
 	if p.ActiveColor == ColorWhite {
-		if p.CanCastle(CastlingWhiteShort, attacks, p.Bitboards[14]) &&
+		if p.canCastle(CastlingWhiteShort, attacks, p.Bitboards[14]) &&
 			p.Bitboards[PieceWRook]&H1 != 0 {
 			l.Push(NewMove(SG1, king, MoveCastling))
 		}
-		if p.CanCastle(CastlingWhiteLong, attacks, p.Bitboards[14]) &&
+		if p.canCastle(CastlingWhiteLong, attacks, p.Bitboards[14]) &&
 			p.Bitboards[PieceWRook]&A1 != 0 {
 			l.Push(NewMove(SC1, king, MoveCastling))
 		}
 	} else {
-		if p.CanCastle(CastlingBlackShort, attacks, p.Bitboards[14]) &&
+		if p.canCastle(CastlingBlackShort, attacks, p.Bitboards[14]) &&
 			p.Bitboards[PieceBRook]&H8 != 0 {
 			l.Push(NewMove(SG8, king, MoveCastling))
 		}
-		if p.CanCastle(CastlingBlackLong, attacks, p.Bitboards[14]) &&
+		if p.canCastle(CastlingBlackLong, attacks, p.Bitboards[14]) &&
 			p.Bitboards[PieceBRook]&A8 != 0 {
 			l.Push(NewMove(SC8, king, MoveCastling))
 		}
