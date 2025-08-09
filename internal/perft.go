@@ -14,9 +14,6 @@ import (
 	"github.com/BelikovArtem/chego"
 )
 
-// Test position. See https://www.chessprogramming.org/Perft
-const initFEN = "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
-
 // result information will be printed is the perft is executed with the
 // verbose flag.
 type result struct {
@@ -127,7 +124,7 @@ func main() {
 
 	r := &result{}
 
-	p := chego.ParseFEN(initFEN)
+	p := chego.ParseFEN(chego.InitialPos)
 
 	start := time.Now()
 	defer func() {
@@ -135,7 +132,7 @@ func main() {
 
 		if *verbose {
 			log.Printf("\nRoot position:\n%s\n\n\t%s\n\n",
-				position(chego.ParseFEN(initFEN)), initFEN)
+				position(chego.ParseFEN(chego.InitialPos)), chego.InitialPos)
 			log.Printf("\t%d\t%d\t\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t",
 				*depth,
 				r.nodes,

@@ -1,5 +1,5 @@
-// predef.go contains predefined attack tables and
-// magic numbers used in move generation.
+// predef.go contains declarations of predefined attack tables, magic numbers,
+// and other useful constants.
 
 package chego
 
@@ -195,6 +195,8 @@ var (
 		0x70, 0x1C, 0x7000000000000000, 0x1C00000000000000,
 	}
 )
+
+const InitialPos = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 // Bitboards of each square.
 const (

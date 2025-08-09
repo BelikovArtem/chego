@@ -2,18 +2,32 @@
 
 package chego
 
+import "time"
+
 // Game represents a single chess game state.
+//
 // Make sure to call [InitAttackTables] and [InitZobristKeys]
 // ONCE before creating a [Game].
 type Game struct {
-	Position   Position
 	LegalMoves MoveList
+	Position   Position
 	MoveStack  []CompletedMove
+	// Keep track of all captured pieces.
+	Captured []Piece
 	// Keep track of all repeated Zobrist keys to detect
 	// a threefold repetition.
 	Repetitions map[uint64]int
-	// Keep track of all captured pieces.
-	Captured []Piece
+	// Remaining time on a white player's clock in seconds.
+	// Set to 0 by default.
+	WhiteTime int
+	// Remaining time on a black player's clock in seconds.
+	// Set to 0 by default.
+	BlackTime int
+	// Clock will send a tick signal every second. By default the Clock is
+	// stopped. The caller should call SetClock to apply the time limit
+	// for a game.
+	Clock  *time.Ticker
+	Result Result
 }
 
 // CompletedMove represents a completed move.
@@ -23,6 +37,8 @@ type CompletedMove struct {
 	FenString string
 	// Move itself.
 	Move Move
+	// Remaining time on a player's clock in seconds.
+	TimeLeft int
 }
 
 // NewGame creates a new game initialized with the default chess position.
@@ -32,12 +48,16 @@ func NewGame() *Game {
 		MoveStack:   make([]CompletedMove, 0, 15),
 		Repetitions: make(map[uint64]int),
 		Captured:    make([]Piece, 0, 15),
+		Clock:       time.NewTicker(time.Second),
 	}
-	g.Position = ParseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+
+	g.Clock.Stop()
+
+	g.Position = ParseFEN(InitialPos)
 
 	GenLegalMoves(g.Position, &g.LegalMoves)
 
-	// Add initial key.
+	// Add initial repetition key.
 	g.Repetitions[zobristKey(g.Position)]++
 	return g
 }
@@ -62,10 +82,17 @@ func (g *Game) PushMove(m Move) {
 		clear(g.Repetitions)
 	}
 
+	// Store the clock value.
+	tl := g.WhiteTime
+	if moved%2 != 0 {
+		tl = g.BlackTime
+	}
+
 	// Store the completed move.
 	g.MoveStack = append(g.MoveStack, CompletedMove{
 		Move:      m,
 		FenString: SerializeFEN(g.Position),
+		TimeLeft:  tl,
 	})
 
 	// Generate legal moves for the next turn.
@@ -88,8 +115,7 @@ func (g *Game) PushMove(m Move) {
 }
 
 // PopMove pops the last completed move and restores the game state.
-// If there is no completed moves, this function is no-op.
-// Also generates new legal moves.
+// If there are no completed moves, this function is no-op.
 func (g *Game) PopMove() {
 	if len(g.MoveStack) == 0 {
 		return
@@ -98,18 +124,31 @@ func (g *Game) PopMove() {
 	// Decrement repetition key.
 	g.Repetitions[zobristKey(g.Position)]--
 
+	// Pop move from the stack.
 	g.MoveStack = g.MoveStack[:len(g.MoveStack)-1]
 
-	if len(g.MoveStack) > 0 {
-		pos := ParseFEN(g.MoveStack[len(g.MoveStack)-1].FenString)
-		g.Position = pos
-		GenLegalMoves(g.Position, &g.LegalMoves)
+	if len(g.MoveStack) == 0 { // No moves left.
+		// Restore position.
+		p := ParseFEN(g.MoveStack[len(g.MoveStack)-1].FenString)
+		g.Position = p
+		// Restore time on the player timers.
+		// Since there are no more completed moves, to restore the initial
+		// clock values just assign a WhiteTime to a BlackTime.
+		g.WhiteTime = g.BlackTime
+	} else if len(g.MoveStack)%2 == 0 {
+		// White player has moved.
+		last := g.MoveStack[len(g.MoveStack)-1]
+		g.Position = ParseFEN(last.FenString)
+		g.WhiteTime = last.TimeLeft
 	} else {
-		// Restore initial game state.
-		newGame := NewGame()
-		g.Position = newGame.Position
-		g.LegalMoves = newGame.LegalMoves
+		// Black player has moved.
+		last := g.MoveStack[len(g.MoveStack)-1]
+		g.Position = ParseFEN(last.FenString)
+		g.BlackTime = last.TimeLeft
 	}
+
+	// Restore legal moves.
+	GenLegalMoves(g.Position, &g.LegalMoves)
 }
 
 // IsThreefoldRepetition checks whether the game has reached
@@ -192,6 +231,25 @@ func (g *Game) IsMoveLegal(m Move) bool {
 		}
 	}
 	return false
+}
+
+// SetClock sets each player's clock value to dur and starts the [Clock],
+// applying a time limit to both players.
+func (g *Game) SetClock(dur int) {
+	g.WhiteTime = dur
+	g.BlackTime = dur
+	g.Clock.Reset(time.Second)
+}
+
+// TimeTick decrements the clock value of the currently active player
+// in response to ticks from the [Clock]. It is the caller's responsibility
+// to end the game if one of the players runs out of time.
+func (g *Game) TimeTick() {
+	if g.Position.ActiveColor == ColorWhite {
+		g.WhiteTime--
+	} else {
+		g.BlackTime--
+	}
 }
 
 // calculateMaterial calculates the piece valies of each side.

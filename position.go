@@ -15,7 +15,8 @@ type Position struct {
 }
 
 // MakeMove modifies the position by applying the specified move.
-// It's a caller responsibility to ensure the legality of the move.
+// It is the caller’s responsibility to check if the specified move
+// is at least pseudo-legal.
 //
 // Not only is the piece placement updated, but also the entire position,
 // including castling rights, en passant target, halfmove counter, fullmove
@@ -30,7 +31,7 @@ func (p *Position) MakeMove(m Move) {
 	p.removePiece(piece, from)
 
 	// Increment halfmove counter to detect 50-move rule draw.
-	// This will be reseted if the move is capture, or a pawn push.
+	// This will be reset if the move is a capture or a pawn push.
 	p.HalfmoveCnt++
 
 	// Remove the captured piece from the board.
