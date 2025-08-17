@@ -1,10 +1,14 @@
-// position.go defines the Position structure and it's methods
-// for representing and modifying the chessboard state.
+/*
+position.go defines the Position structure and it's methods for representing and
+modifying the chessboard state.
+*/
 
 package chego
 
-// Position represents a chessboard state that can be
-// converted to or parsed from a FEN string.
+/*
+Position represents a chessboard state that can be converted to or parsed from
+a FEN string.
+*/
 type Position struct {
 	Bitboards      [15]uint64
 	ActiveColor    Color
@@ -14,13 +18,14 @@ type Position struct {
 	FullmoveCnt    int
 }
 
-// MakeMove modifies the position by applying the specified move.
-// It is the caller’s responsibility to check if the specified move
-// is at least pseudo-legal.
-//
-// Not only is the piece placement updated, but also the entire position,
-// including castling rights, en passant target, halfmove counter, fullmove
-// counter, and the active color.
+/*
+MakeMove modifies the position by applying the specified move.  It is the
+caller’s responsibility to check if the specified move is at least pseudo-legal.
+
+Not only is the piece placement updated, but also the entire position, including
+castling rights, en passant target, halfmove counter, fullmove counter, and the
+active color.
+*/
 func (p *Position) MakeMove(m Move) {
 	to := uint64(1 << m.To())
 	from := uint64(1 << m.From())
@@ -134,8 +139,10 @@ func (p *Position) MakeMove(m Move) {
 	p.ActiveColor ^= 1
 }
 
-// GetPieceFromSquare returns the type of the piece that stands
-// on the specified square, or [PieceNone] if the square is empty.
+/*
+GetPieceFromSquare returns the type of the piece that stands on the specified
+square, or [PieceNone] if the square is empty.
+*/
 func (p *Position) GetPieceFromSquare(square uint64) Piece {
 	for i := range p.Bitboards {
 		if square&p.Bitboards[i] != 0 {
@@ -145,12 +152,15 @@ func (p *Position) GetPieceFromSquare(square uint64) Piece {
 	return PieceNone
 }
 
-// canCastle checks whether the king can peform
-// castling in the specified direction.
-// side == 1 -> White O-O.
-// side == 2 -> White O-O-O.
-// side == 4 -> Black O-O.
-// side == 8 -> Black O-O-O.
+/*
+canCastle checks whether the king can peform castling in the specified direction.
+
+side represents a castling type:
+  - 1 -> White O-O.
+  - 2 -> White O-O-O.
+  - 4 -> Black O-O.
+  - 8 -> Black O-O-O.
+*/
 func (p *Position) canCastle(side int, attacks, occupancy uint64) bool {
 	c := bitScan(uint64(side))
 	path := castlingPath[c]
@@ -159,8 +169,10 @@ func (p *Position) canCastle(side int, attacks, occupancy uint64) bool {
 		occupancy&path == 0
 }
 
-// placePiece places the piece on the specified square and
-// updates the occupancy and allies bitboards.
+/*
+placePiece places the piece on the specified square and updates the occupancy
+and allies bitboards.
+*/
 func (p *Position) placePiece(piece Piece, square uint64) {
 	// Place the piece.
 	p.Bitboards[piece] |= square
@@ -174,12 +186,13 @@ func (p *Position) placePiece(piece Piece, square uint64) {
 	p.Bitboards[14] |= square
 }
 
-// removePiece removes the piece from the specified square and
-// updates the occupancy and allies bitboards.
-//
-// NOTE: if there is no piece of the specified type on the
-// specified square, this function will place the piece
-// instead of removing it.
+/*
+removePiece removes the piece from the specified square and updates the
+occupancy and allies bitboards.
+
+NOTE: if there is no piece of the specified type on the specified square, this
+function will place the piece instead of removing it.
+*/
 func (p *Position) removePiece(piece Piece, square uint64) {
 	// Remove the piece.
 	p.Bitboards[piece] ^= square

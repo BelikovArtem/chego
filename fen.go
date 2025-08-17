@@ -1,6 +1,20 @@
-// fen.go implements conversions between Forsyth-Edwards Notation (FEN) strings
-// and bitboard arrays. Functions in this file expect the passed FEN strings and
-// bitboard arrays to be valid, and may panic if they are not.
+/*
+fen.go implements conversions between Forsyth-Edwards Notation (FEN) strings
+and bitboard arrays.  Functions in this file expect the passed FEN strings and
+bitboard arrays to be valid, and may panic if they are not.
+
+Each FEN string consists of six parts, separated by a space:
+ 1. Piece placement: will be parsed into the array of bitboards.
+ 2. Active color:
+	"w" means that White is to move;
+	"b" means that Black is to move.
+ 3. Castling rights: if neither side has the ability to castle,
+	this field uses the character "-".
+ 4. En passant target square: if there is no en passant target square,
+	this field uses the character "-".
+ 5. Halfmove clock: used for the fifty-move rule.
+ 6. Fullmove number: The number of the full moves.
+*/
 
 package chego
 
@@ -10,20 +24,10 @@ import (
 	"strings"
 )
 
-// Each FEN string consists of six parts, separated by a space:
-//  1. Piece placement: will be parsed into the array of bitboards.
-//  2. Active color:
-//     "w" means that White is to move;
-//     "b" means that Black is to move.
-//  3. Castling rights: if neither side has the ability to castle,
-//     this field uses the character "-".
-//  4. En passant target square: if there is no en passant target square,
-//     this field uses the character "-".
-//  5. Halfmove clock: used for the fifty-move rule.
-//  6. Fullmove number: The number of the full moves.
-
-// ParseFEN parses the given FEN string into a [Position].
-// It's a caller responsibility to validate the provided FEN string.
+/*
+ParseFEN parses the given FEN string into a [Position].  It's a caller's
+responsibility to validate the provided FEN string.
+*/
 func ParseFEN(fen string) (p Position) {
 	// Separate FEN fields.
 	fields := strings.SplitN(fen, " ", 6)
@@ -128,10 +132,10 @@ func SerializeFEN(p Position) string {
 	return fen.String()
 }
 
-// ParseBitboards converts the first part of a FEN
-// string into an array of bitboards.
-//
-// May panic if the provided string is not valid.
+/*
+ParseBitboards converts the first part of a FEN string into an array of
+bitboards.  May panic if the provided string is not valid.
+*/
 func ParseBitboards(piecePlacement string) (bitboards [15]uint64) {
 	square := 56
 
@@ -190,8 +194,10 @@ func ParseBitboards(piecePlacement string) (bitboards [15]uint64) {
 	return bitboards
 }
 
-// SerializeBitboards converts the array of bitboards into
-// the first part of FEN string.
+/*
+SerializeBitboards converts the array of bitboards into the first part of FEN
+string.
+*/
 func SerializeBitboards(bitboards [15]uint64) string {
 	// Used to add characters to a string without extra memory allocations.
 	b := strings.Builder{}
@@ -239,8 +245,9 @@ func SerializeBitboards(bitboards [15]uint64) string {
 	return b.String()
 }
 
-// string2Square parses the given string into a square index.
-// Handles "-" as A1 square.
+/*
+string2Square parses the given string into a square index. Handles "-" as A1 square.
+*/
 func string2Square(str string) int {
 	square := 0
 	switch str[0] {

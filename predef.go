@@ -1,5 +1,7 @@
-// predef.go contains declarations of predefined attack tables, magic numbers,
-// and other useful constants.
+/*
+predef.go contains declarations of predefined attack tables, magic numbers,
+and other useful constants.
+*/
 
 package chego
 

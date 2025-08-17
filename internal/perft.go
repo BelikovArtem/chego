@@ -1,6 +1,8 @@
-// Package main provides debugging and testing functions.
-// It is excluded from the chego package, as it is only used
-// for testing purposes. The chego users won't be able to import this package.
+/*
+Package main provides debugging and testing functions.  It is excluded from the
+chego package, as it is only used for testing purposes.  The chego users won't
+be able to import this package.
+*/
 package main
 
 import (
@@ -27,12 +29,13 @@ type result struct {
 	checkmates   int
 }
 
-// perft is a debugging function that walks through the move generation
-// tree of strictly legal moves to a given depth and counts the number of
-// visited leaf nodes. The resulting count is then compared to
-// predetermined values.
-//
-// See https://www.chessprogramming.org/Perft_Results
+/*
+perft is a debugging function that walks through the move generation tree of
+strictly legal moves to a given depth and counts the number of visited leaf
+nodes. The resulting count is then compared to predetermined values.
+
+See https://www.chessprogramming.org/Perft_Results
+*/
 func perft(p chego.Position, depth int) int {
 	l := chego.MoveList{}
 	nodes := 0
@@ -56,10 +59,11 @@ func perft(p chego.Position, depth int) int {
 	return nodes
 }
 
-// perftVerbose follows the same principle as the perft function, except it
-// writes detailed move debugging information to r. Use this function to debug
-// and find invalid branches in the move generation tree,
-// not to measure performance.
+/*
+perftVerbose follows the same principle as the perft function, except it writes
+detailed move debugging information to r. Use this function to debug and find
+invalid branches in the move generation tree, not to measure performance.
+*/
 func perftVerbose(p chego.Position, depth int, r *result, isRoot bool) int {
 	l := chego.MoveList{}
 	nodes := 0

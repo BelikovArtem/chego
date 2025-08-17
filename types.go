@@ -2,12 +2,13 @@
 
 package chego
 
-// Move represents a chess move, encoded as a 16 bit unsigned integer:
-//
-//	0-5:   To (destination) square index;
-//	6-11:  From (origin/source) square index;
-//	12-13: Promotion piece (see [PromotionFlag]);
-//	14-15: Move type (see [MoveType]).
+/*
+Move represents a chess move, encoded as a 16 bit unsigned integer:
+  - 0-5:   To (destination) square index.
+  - 6-11:  From (origin/source) square index.
+  - 12-13: Promotion piece (see [PromotionFlag]).
+  - 14-15: Move type (see [MoveType]).
+*/
 type Move uint16
 
 // NewMove creates a new move with the promotion piece set to [PromotionQueen].
@@ -26,9 +27,11 @@ func (m Move) From() int                 { return int(m>>6) & 0x3F }
 func (m Move) PromoPiece() PromotionFlag { return PromotionFlag(m>>12) & 0x3 }
 func (m Move) Type() MoveType            { return MoveType(m>>14) & 0x3 }
 
-// MoveList is used to store moves. The main idea behind it is to preallocate
-// an array with enough capacity to store all possible moves and avoid dynamic
-// memory allocations.
+/*
+MoveList is used to store moves.  The main idea behind it is to preallocate
+an array with enough capacity to store all possible moves and avoid dynamic
+memory allocations.
+*/
 type MoveList struct {
 	// Maximum number of moves per chess position is equal to 218,
 	// hence 218 elements.
@@ -120,12 +123,13 @@ const (
 	MoveEnPassant
 )
 
-// CastlingRights defines the player's rights to perform castlings.
-//
-// 	0 bit: white king can O-O.
-//  1 bit: white king can O-O-O.
-//  2 bit: black king can O-O.
-//  3 bit: black king can O-O-O.
+/*
+CastlingRights defines the player's rights to perform castlings.
+  - 0 bit: white king can O-O.
+  - 1 bit: white king can O-O-O.
+  - 2 bit: black king can O-O.
+  - 3 bit: black king can O-O-O.
+*/
 type CastlingRights = int
 
 const (

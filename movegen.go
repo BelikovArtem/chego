@@ -25,10 +25,12 @@ const (
 	RANK_8 uint64 = 0xFF00000000000000
 )
 
-// InitAttackTables initializes the predefined attack tables.
-// Call this function ONCE as close as possible to the start of your program.
-//
-// NOTE: Move generation will not work if the attack tables are not initialized.
+/*
+InitAttackTables initializes the predefined attack tables.  Call this function
+ONCE as close as possible to the start of your program.
+
+NOTE: Move generation will not work if the attack tables are not initialized.
+*/
 func InitAttackTables() {
 	initBishopOccupancy()
 	initRookOccupancy()
@@ -63,8 +65,10 @@ func InitAttackTables() {
 	}
 }
 
-// GenLegalMoves generates legal moves for the currently active color
-// using copy-make approach.
+/*
+GenLegalMoves generates legal moves for the currently active color using
+copy-make approach.
+*/
 func GenLegalMoves(p Position, l *MoveList) {
 	l.LastMoveIndex = 0
 
@@ -94,8 +98,10 @@ func GenLegalMoves(p Position, l *MoveList) {
 	}
 }
 
-// GenChecksCounter returns the number of the pieces of the
-// specified color that are delivering a check to the enemy king.
+/*
+GenChecksCounter returns the number of the pieces of the specified color that
+are delivering a check to the enemy king.
+*/
 func GenChecksCounter(bitboards [15]uint64, c Color) (cnt int) {
 	king := bitScan(bitboards[PieceWKing+(1^c)])
 
@@ -122,9 +128,10 @@ func GenChecksCounter(bitboards [15]uint64, c Color) (cnt int) {
 	return cnt
 }
 
-// genKingMoves appends legal moves for the king on
-// the given position to the specified move list.
-// Handles special king move - castling.
+/*
+genKingMoves appends legal moves for the king on the given position to the
+specified move list.  Handles special king move - castling.
+*/
 func genKingMoves(p Position, l *MoveList) {
 	kingBB := p.Bitboards[PieceWKing+p.ActiveColor]
 	p.removePiece(PieceWKing+p.ActiveColor, kingBB)
@@ -161,8 +168,10 @@ func genKingMoves(p Position, l *MoveList) {
 	}
 }
 
-// genPawnMoves appends pseudo-legal moves for a pawns to the given move list.
-// Handles special pawn move - en passant.
+/*
+genPawnMoves appends pseudo-legal moves for a pawns to the given move list.
+Handles special pawn move - en passant.
+*/
 func genPawnMoves(p Position, l *MoveList) {
 	occupancy := p.Bitboards[14]
 	ep := uint64(0)
@@ -204,7 +213,7 @@ func genPawnMoves(p Position, l *MoveList) {
 			}
 		}
 
-		// Handle pawn attacks. Pawn can only capture enemy pieces
+		// Handle pawn attacks.  Pawn can only capture enemy pieces
 		// or the en passant target square.
 		attacks := pawnAttacks[p.ActiveColor][pawn] & (enemies | ep)
 		for attacks > 0 {
@@ -224,8 +233,10 @@ func genPawnMoves(p Position, l *MoveList) {
 	}
 }
 
-// genPawnMoves appends pseudo-legal moves for knights, bishops,
-// rooks, and queens to the given move list.
+/*
+genPawnMoves appends pseudo-legal moves for knights, bishops, rooks, and queens
+to the given move list.
+*/
 func genNormalMoves(p Position, l *MoveList) {
 	c := p.ActiveColor
 	allies := p.Bitboards[12+c]
@@ -256,14 +267,15 @@ func genNormalMoves(p Position, l *MoveList) {
 	}
 }
 
-// genAttacks generates the bitboard of squares attacked
-// by pieces of the specified color.
-// The main purpose of this function is to generate a bitboard
-// of squares to which the king is forbidden to move.
-//
-// NOTE: The king must be excluded from the occupancy (bitboards[14])
-// bitboard to avoid blocking the attacks of slider pieces.
-// Otherwise, the king may appear to be able to move into check.
+/*
+genAttacks generates the bitboard of squares attacked by pieces of the specified
+color.  The main purpose of this function is to generate a bitboard of squares
+to which the king is forbidden to move.
+
+NOTE: The king must be excluded from the occupancy (bitboards[14]) bitboard to
+avoid blocking the attacks of slider pieces.  Otherwise, the king may appear to
+be able to move into check.
+*/
 func genAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
 	for i := PieceWBishop + c; i <= PieceWQueen+c; i += 2 {
 		bitboard := bitboards[i]
@@ -291,9 +303,12 @@ func genAttacks(bitboards [15]uint64, c Color) (attacks uint64) {
 	return attacks
 }
 
-// Use this function only to generate attacks for multiple pawns
-// simultaneously. To get attacks for a single pawn, use the
-// pawnAttacks lookup table.
+/*
+genPawnAttacks returns a bitboard of squares attacked by pawns.
+
+Use this function only to generate attacks for multiple pawns simultaneously.
+To get attacks for a single pawn, use the pawnAttacks lookup table.
+*/
 func genPawnAttacks(pawn uint64, color Color) uint64 {
 	if color == ColorWhite {
 		return (pawn & NOT_A_FILE << 7) | (pawn & NOT_H_FILE << 9)
@@ -302,11 +317,12 @@ func genPawnAttacks(pawn uint64, color Color) uint64 {
 	return (pawn & NOT_A_FILE >> 9) | (pawn & NOT_H_FILE >> 7)
 }
 
-// genKnightAttacks returns a bitboard of squares attacked by knights.
-//
-// Use this function only to generate attacks for multiple knights
-// simultaneously. To get attacks for a single knight, use the
-// knightAttacks lookup table.
+/*
+genKnightAttacks returns a bitboard of squares attacked by knights.
+
+Use this function only to generate attacks for multiple knights simultaneously.
+To get attacks for a single knight, use the knightAttacks lookup table.
+*/
 func genKnightAttacks(knight uint64) uint64 {
 	return (knight & NOT_A_FILE >> 17) |
 		(knight & NOT_H_FILE >> 15) |
@@ -330,12 +346,13 @@ func genKingAttacks(king uint64) uint64 {
 		(king & NOT_H_FILE << 9)
 }
 
-// genBishopAttacks returns a bitboard of squares
-// attacked by a bishop. Occupied squares that block
-// movement in each direction are taken into account.
-// The resulting bitboard includes the occupied squares.
-//
-// This function cannot generate attacks for multiple bishops simultaneously.
+/*
+genBishopAttacks returns a bitboard of squares attacked by a bishop.
+
+Occupied squares that block movement in each direction are taken into account.
+The resulting bitboard includes the occupied squares.  This function cannot
+generate attacks for multiple bishops simultaneously.
+*/
 func genBishopAttacks(bishop, occupancy uint64) (attacks uint64) {
 	for i := bishop & NOT_A_FILE >> 9; i&NOT_H_FILE != 0; i >>= 9 {
 		attacks |= i
@@ -368,12 +385,13 @@ func genBishopAttacks(bishop, occupancy uint64) (attacks uint64) {
 	return attacks
 }
 
-// genRookAttacks returns a bitboard of squares attacked by a rook.
-// Occupied squares that block movement in each direction are
-// taken into account.
-// The resulting bitboard includes the occupied squares.
-//
-// This function cannot generate attacks for multiple rooks simultaneously.
+/*
+genRookAttacks returns a bitboard of squares attacked by a rook.
+
+Occupied squares that block movement in each direction are taken into account.
+The resulting bitboard includes the occupied squares.  This function cannot
+generate attacks for multiple rooks simultaneously.
+*/
 func genRookAttacks(rook, occupancy uint64) (attacks uint64) {
 	for i := rook & NOT_A_FILE >> 1; i&NOT_H_FILE != 0; i >>= 1 {
 		attacks |= i
@@ -406,11 +424,11 @@ func genRookAttacks(rook, occupancy uint64) (attacks uint64) {
 	return attacks
 }
 
-// initBishopOccupancy initializes the lookup table
-// of the "relevant occupancy squares" for a bishop.
-// They are the only squares whose occupancy matters when
-// generating legal moves of a bishop. This function is used
-// to initialize a predefined array of bishop attacks using magic bitboards.
+/*
+initBishopOccupancy initializes the lookup table of the "relevant occupancy
+squares" for a bishop.  They are the only squares whose occupancy matters when
+generating legal moves of a bishop.
+*/
 func initBishopOccupancy() {
 	// Helper constants.
 	const not_A_not_1st = NOT_A_FILE & NOT_1ST_RANK
@@ -441,11 +459,11 @@ func initBishopOccupancy() {
 	}
 }
 
-// initRookOccupancy initializes the lookup table
-// of the "relevant occupancy squares" for a rook.
-// They are the only squares whose occupancy matters when
-// generating legal moves of a rook. This function is used
-// to initialize a predefined array of rook attacks using magic bitboards.
+/*
+initRookOccupancy initializes the lookup table of the "relevant occupancy
+squares" for a rook.  They are the only squares whose occupancy matters when
+generating legal moves of a rook.
+*/
 func initRookOccupancy() {
 	for square := range 64 {
 		var occupancy, rook uint64 = 0, 1 << square
@@ -470,8 +488,10 @@ func initRookOccupancy() {
 	}
 }
 
-// genOccupancy returns a bitboard of blocker pieces
-// for the specified attack bitboard.
+/*
+genOccupancy returns a bitboard of blocker pieces for the specified attack
+bitboard.
+*/
 func genOccupancy(key, relevantBitCount int,
 	relevantOccupancy uint64) (occupancy uint64) {
 
@@ -486,8 +506,10 @@ func genOccupancy(key, relevantBitCount int,
 	return occupancy
 }
 
-// lookupBishopAttacks returns a bitboard of squares attacked by a bishop.
-// The bitboard is taken from the bishopAttacks using magic hashing scheme.
+/*
+lookupBishopAttacks returns a bitboard of squares attacked by a bishop.  The
+bitboard is taken from the bishopAttacks using magic hashing scheme.
+*/
 func lookupBishopAttacks(square int, occupancy uint64) uint64 {
 	occupancy &= bishopOccupancy[square]
 	occupancy *= bishopMagicNumbers[square]
@@ -495,8 +517,10 @@ func lookupBishopAttacks(square int, occupancy uint64) uint64 {
 	return bishopAttacks[square][occupancy]
 }
 
-// lookupRookAttacks returns a bitboard of squares attacked by a rook.
-// The bitboard is taken from the rookAttacks using magic hashing scheme.
+/*
+lookupRookAttacks returns a bitboard of squares attacked by a rook.  The
+bitboard is taken from the rookAttacks using magic hashing scheme.
+*/
 func lookupRookAttacks(square int, occupancy uint64) uint64 {
 	occupancy &= rookOccupancy[square]
 	occupancy *= rookMagicNumbers[square]
@@ -504,9 +528,11 @@ func lookupRookAttacks(square int, occupancy uint64) uint64 {
 	return rookAttacks[square][occupancy]
 }
 
-// lookupQueenAttacks returns a bitboard of squares attacked by a queen.
-// The bitboard is calculated as the logical disjunction
-// of the bishop and rook attack bitboards.
+/*
+lookupQueenAttacks returns a bitboard of squares attacked by a queen.  The
+bitboard is calculated as the logical disjunction of the bishop and rook attack
+bitboards.
+*/
 func lookupQueenAttacks(square int, occupancy uint64) uint64 {
 	return lookupBishopAttacks(square, occupancy) |
 		lookupRookAttacks(square, occupancy)

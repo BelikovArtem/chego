@@ -4,10 +4,12 @@ package chego
 
 import "time"
 
-// Game represents a single chess game state.
-//
-// Make sure to call [InitAttackTables] and [InitZobristKeys]
-// ONCE before creating a [Game].
+/*
+Game represents a single chess game state.
+
+Make sure to call [InitAttackTables] and [InitZobristKeys] ONCE before creating
+a [Game].
+*/
 type Game struct {
 	LegalMoves MoveList
 	Position   Position
@@ -17,14 +19,14 @@ type Game struct {
 	// Keep track of all repeated Zobrist keys to detect
 	// a threefold repetition.
 	Repetitions map[uint64]int
-	// Remaining time on a white player's clock in seconds.
-	// Set to 0 by default.
+	// Remaining time on a white player's clock in seconds.  0 by default.
 	WhiteTime int
-	// Remaining time on a black player's clock in seconds.
-	// Set to 0 by default.
+	// Remaining time on a black player's clock in seconds.  0 by default.
 	BlackTime int
-	// Clock will send a tick signal every second. By default the Clock is
-	// stopped. The caller should call SetClock to apply the time limit
+	// Number of seconds added to player's clock after completing a move.
+	TimeBonus int
+	// Clock will send a tick signal every second.  By default the Clock is
+	// stopped.  The caller should call SetClock to apply the time limit
 	// for a game.
 	Clock  *time.Ticker
 	Result Result
@@ -32,8 +34,8 @@ type Game struct {
 
 // CompletedMove represents a completed move.
 type CompletedMove struct {
-	// Board state after completing the move
-	// to enable move undo and state restoration.
+	// Board state after completing the move to enable move undo and
+	// state restoration.
 	FenString string
 	// Move itself.
 	Move Move
@@ -41,8 +43,10 @@ type CompletedMove struct {
 	TimeLeft int
 }
 
-// NewGame creates a new game initialized with the default chess position.
-// Generates legal moves.
+/*
+NewGame creates a new game initialized with the default chess position.
+Generates legal moves.
+*/
 func NewGame() *Game {
 	g := &Game{
 		MoveStack:   make([]CompletedMove, 0, 15),
@@ -62,9 +66,11 @@ func NewGame() *Game {
 	return g
 }
 
-// PushMove updates the game state by performing the specified move.
-// It is a caller responsibility to check if the specified move is legal.
-// Generates legal moves for the next turn.
+/*
+PushMove updates the game state by performing the specified move.  It is a
+caller responsibility to check if the specified move is legal.  Generates
+legal moves for the next turn.
+*/
 func (g *Game) PushMove(m Move) {
 	moved := g.Position.GetPieceFromSquare(1 << m.From())
 	captured := g.Position.GetPieceFromSquare(1 << m.To())
@@ -114,8 +120,10 @@ func (g *Game) PushMove(m Move) {
 	g.Repetitions[zobristKey(g.Position)]++
 }
 
-// PopMove pops the last completed move and restores the game state.
-// If there are no completed moves, this function is no-op.
+/*
+PopMove pops the last completed move and restores the game state.
+If there are no completed moves, this function is no-op.
+*/
 func (g *Game) PopMove() {
 	if len(g.MoveStack) == 0 {
 		return
@@ -151,18 +159,18 @@ func (g *Game) PopMove() {
 	GenLegalMoves(g.Position, &g.LegalMoves)
 }
 
-// IsThreefoldRepetition checks whether the game has reached
-// a threefold repetition.
-//
-// A position is considered identical if all of the following
-// conditions are met:
-//  1. Active colors are the same.
-//  2. Pieces occupy the same squares.
-//  3. Legal moves are the same.
-//  4. Castling rights are identical.
-//
-// NOTE: Positions are identical even if the en passant target
-// square differs, provided that no en passant capture is possible.
+/*
+IsThreefoldRepetition checks whether the game has reached a threefold repetition.
+
+A position is considered identical if all of the following conditions are met:
+  - Active colors are the same.
+  - Pieces occupy the same squares.
+  - Legal moves are the same.
+  - Castling rights are identical.
+
+NOTE: Positions are identical even if the en passant target square differs,
+provided that no en passant capture is possible.
+*/
 func (g *Game) IsThreefoldRepetition() bool {
 	for _, reps := range g.Repetitions {
 		if reps >= 3 {
@@ -172,13 +180,13 @@ func (g *Game) IsThreefoldRepetition() bool {
 	return false
 }
 
-// IsInsufficientMaterial returns true if one of the following
-// statements is true:
-//  1. Both sides have a bare king.
-//  2. One side has a king and a minor piece against a bare king.
-//  3. Both sides have a king and a bishop, the bishops standing
-//     on the same color.
-//  4. Both sides have a king and a knight.
+/*
+IsInsufficientMaterial returns true if one of the following statements is true:
+  - Both sides have a bare king.
+  - One side has a king and a minor piece against a bare king.
+  - Both sides have a king and a bishop, the bishops standing on the same color.
+  - Both sides have a king and a knight.
+*/
 func (g *Game) IsInsufficientMaterial() bool {
 	// Bitmask for all dark squares.
 	dark := uint64(0xAA55AA55AA55AA55)
@@ -207,12 +215,14 @@ func (g *Game) IsInsufficientMaterial() bool {
 	return false
 }
 
-// IsCheckmate returns true if one of the following statements is true:
-//  1. There are no legal moves available for the current turn.
-//  2. The king of the side to move is in check.
-//
-// NOTE: If there are no legal moves, but the king is not in check,
-// the position is a stalemate.
+/*
+IsCheckmate returns true if one of the following statements is true:
+  - There are no legal moves available for the current turn.
+  - The king of the side to move is in check.
+
+NOTE: If there are no legal moves, but the king is not in check,
+the position is a stalemate.
+*/
 func (g *Game) IsCheckmate() bool {
 	isKingInCheck := GenChecksCounter(g.Position.Bitboards,
 		1^g.Position.ActiveColor) > 0
@@ -233,17 +243,22 @@ func (g *Game) IsMoveLegal(m Move) bool {
 	return false
 }
 
-// SetClock sets each player's clock value to dur and starts the [Clock],
-// applying a time limit to both players.
-func (g *Game) SetClock(dur int) {
-	g.WhiteTime = dur
-	g.BlackTime = dur
+/*
+SetClock initializes each player’s clock with timeControl and starts it.
+After every completed move, timeBonus seconds are added to the player’s clock.
+*/
+func (g *Game) SetClock(timeControl, timeBonus int) {
+	g.WhiteTime = timeControl
+	g.BlackTime = timeControl
+	g.TimeBonus = timeBonus
 	g.Clock.Reset(time.Second)
 }
 
-// TimeTick decrements the clock value of the currently active player
-// in response to ticks from the [Clock]. It is the caller's responsibility
-// to end the game if one of the players runs out of time.
+/*
+TimeTick decrements the clock value of the currently active player in response
+to ticks from the [Clock].  It is the caller's responsibility to listen to tick
+events and end the game if one of the players runs out of time.
+*/
 func (g *Game) TimeTick() {
 	if g.Position.ActiveColor == ColorWhite {
 		g.WhiteTime--
@@ -252,8 +267,10 @@ func (g *Game) TimeTick() {
 	}
 }
 
-// calculateMaterial calculates the piece valies of each side.
-// Is used to determine a draw by insufficient material.
+/*
+calculateMaterial calculates the piece valies of each side.  Used to determine
+a draw by insufficient material.
+*/
 func (g *Game) calculateMaterial() (mat int) {
 	coeff := 1
 	for pieceType := range PieceWKing {
