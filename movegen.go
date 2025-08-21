@@ -66,8 +66,8 @@ func InitAttackTables() {
 }
 
 /*
-GenLegalMoves generates legal moves for the currently active color using
-copy-make approach.
+GenLegalMoves generates legal moves for the given position using copy-make
+approach.
 */
 func GenLegalMoves(p Position, l *MoveList) {
 	l.LastMoveIndex = 0

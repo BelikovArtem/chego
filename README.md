@@ -1,4 +1,5 @@
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
+[![Go Reference](https://pkg.go.dev/badge/github.com/BelikovArtem/chego.svg)](https://pkg.go.dev/github.com/BelikovArtem/chego)
 
 Chego implements chessboard state management and legal move generation.
 
@@ -6,7 +7,7 @@ Piece positions are stored as bitboards.
 
 Move generation is implemented using the Magic Bitboards method.
 
-It is assigned to use in the web-servers (for example, [justchess.org](https://justchess.org/)),
+It is assigned to use in the web-servers (for example, [justchess.org](https://justchess.org/)),<br/>
 hence it does not provide any GUI or CLI.
 
 ## Usage
@@ -63,12 +64,12 @@ To execute the performance test, run this command in the chego folder:
 go run ./internal/perft.go -depth {IntValue}
 ```	
 
-Chego generates 119060324 moves at depth 6 in approximately 6 seconds
+Chego generates 119060324 moves at depth 6 in approximately 6 seconds<br/>
 on an Intel i7-10750H CPU.
 
 ## License
 
 Copyright (c) 2025 Artem Bielikov
 
-This project is available under the Mozilla Public License, v. 2.0.  
+This project is available under the Mozilla Public License, v. 2.0.<br/>
 See the [LICENSE](LICENSE) file for details.

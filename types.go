@@ -48,12 +48,12 @@ func (l *MoveList) Push(m Move) {
 }
 
 var (
-	// PieceSymbols is used in fen, format, and uci packages.
+	// PieceSymbols maps each piece type to its symbol.
 	PieceSymbols = [12]byte{
 		'P', 'p', 'N', 'n', 'B', 'b',
 		'R', 'r', 'Q', 'q', 'K', 'k',
 	}
-	// Square2String is used in format and uci packages.
+	// Square2String maps each board square to its string representation.
 	Square2String = [64]string{
 		"a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
 		"a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",

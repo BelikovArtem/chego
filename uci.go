@@ -4,8 +4,11 @@ package chego
 
 import "strings"
 
-// Move2UCI converts the move into long algebraic notation string.
-// Examples: e2e4, e7e5, e1g1 (white short castling), e7e8q (for promotion).
+/*
+Move2UCI converts the move into a long algebraic notation string.
+
+Examples: e2e4, e7e5, e1g1 (white short castling), e7e8q (for promotion).
+*/
 func Move2UCI(m Move) string {
 	var b strings.Builder
 	b.Grow(4)
